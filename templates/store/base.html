@@ -1,0 +1,39 @@
+{% load static %}<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#F8F2EA">
+  <meta name="description" content="ZÁVIA — moda fitness feminina, feita para mover com confiança.">
+  <title>{% block title %}ZÁVIA | Moda Fitness Feminina{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Italiana&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  <script src="{% static 'js/store.js' %}" defer></script>
+</head>
+<body>
+  <div class="top-strip">ZÁVIA <span>— moda feminina para seu melhor movimento</span></div>
+  <header class="site-header"><div class="container header-inner">
+    <button class="menu-toggle" type="button" aria-label="Abrir categorias" data-menu-toggle>☰</button>
+    <a class="logo" href="{% url 'home' %}" aria-label="ZÁVIA início"><img src="{% static 'img/zavia-wordmark.webp' %}" alt="ZÁVIA" width="170" height="65"></a>
+    <nav class="nav-links" id="nav-links" aria-label="Categorias">
+      <a href="{% url 'home' %}">Novidades</a>
+      <a href="{% url 'home' %}?categoria=leggings">Leggings</a>
+      <a href="{% url 'home' %}?categoria=tops">Tops</a>
+      <a href="{% url 'home' %}?categoria=conjuntos">Conjuntos</a>
+      <a href="{% url 'home' %}?categoria=shorts">Shorts</a>
+    </nav>
+    <div class="header-actions"><a href="{% url 'profile' %}" aria-label="Minha conta" title="Minha conta">♙ <span class="desktop-label">Minha conta</span></a>
+      <a class="cart-header" href="{% url 'cart' %}" aria-label="Carrinho">♡ <span class="desktop-label">Carrinho</span><span class="badge-count">{{ cart_count }}</span></a>
+    </div>
+  </div></header>
+  {% if messages %}<div class="container flash-area" role="status">{% for message in messages %}<div class="flash {% if message.tags %}{{ message.tags }}{% endif %}">{{ message }}</div>{% endfor %}</div>{% endif %}
+  <main>{% block content %}{% endblock %}</main>
+  <footer class="footer"><div class="container footer-grid">
+    <div><a href="{% url 'home' %}" class="footer-brand">ZÁVIA</a><p>Vista seu movimento. Sua força é a nossa inspiração.</p><small>Site de demonstração — produtos e preços ilustrativos.</small></div>
+    <div><h4>Compre com estilo</h4><a href="{% url 'home' %}?categoria=leggings">Leggings</a><a href="{% url 'home' %}?categoria=tops">Tops</a><a href="{% url 'home' %}?categoria=conjuntos">Conjuntos</a></div>
+    <div><h4>Sua experiência</h4><a href="{% url 'cart' %}">Meu carrinho</a><a href="{% url 'profile' %}">Minha conta</a><a href="{% url 'checkout' %}">Pagamento (em configuração)</a></div>
+    <div><h4>Entre no universo ZÁVIA</h4><p>Moda fitness feminina com personalidade e leveza.</p><span class="footer-tag">Exibição de teste · Nenhuma cobrança ativa</span></div>
+  </div><div class="container footer-bottom">© 2026 ZÁVIA · Pré-lançamento · Ambiente demonstrativo</div></footer>
+</body>
+</html>

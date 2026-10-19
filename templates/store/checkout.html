@@ -1,0 +1,4 @@
+{% extends 'store/base.html' %}{% block title %}Checkout | ZÁVIA{% endblock %}
+{% block content %}<section class="container inner-page narrow"><span class="eyebrow">PAGAMENTOS · PRÉ-LANÇAMENTO</span><h1>Estamos preparando <em>seu checkout.</em></h1>
+<div class="information-box"><h3>Mercado Pago — integração em andamento</h3><p>Você já pode navegar pela loja, escolher cor e tamanho e montar seu carrinho. Para sua segurança, ainda não é possível pagar nem confirmar pedidos nesta versão de testes.</p><p>Não coletamos números de cartão, não geramos cobranças e não alteramos estoque por esta tela.</p></div>
+<a class="button button-dark" href="{% url 'cart' %}">VOLTAR AO CARRINHO ↗</a></section>{% endblock %}

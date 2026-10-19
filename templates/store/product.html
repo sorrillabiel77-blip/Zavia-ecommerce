@@ -1,0 +1,10 @@
+{% extends 'store/base.html' %}
+{% block title %}{{ product.name }} | ZÁVIA{% endblock %}
+{% block content %}<section class="container product-page"><div class="breadcrumbs"><a href="{% url 'home' %}">Início</a> / <a href="{% url 'home' %}?categoria={{ product.category.slug }}">{{ product.category.name }}</a> / {{ product.name }}</div>
+<div class="product-layout"><div class="product-gallery"><div class="main-photo"><img id="mainProductPhoto" src="{{ product.image_url }}" alt="{{ product.name }}"></div>{% for photo in product.gallery.all %}<button class="thumbnail" type="button" data-thumb="{{ photo.image_url }}"><img src="{{ photo.image_url }}" alt="{{ photo.alt|default:product.name }}"></button>{% endfor %}</div>
+<div class="detail-panel"><span class="eyebrow">ZÁVIA · {{ product.category.name|upper }}</span><h1>{{ product.name }}</h1><p class="detail-price">R$ {{ product.effective_price|floatformat:2 }}</p><p class="muted">{{ product.description }}</p>
+<form method="post" action="{% url 'cart_add' %}" class="buy-form" id="buyForm">{% csrf_token %}
+<label for="variantSelect">Cor e tamanho</label><select name="variant_id" id="variantSelect" required><option value="">Selecione sua opção</option>{% for item in variants %}<option value="{{ item.pk }}" {% if item.stock < 1 %}disabled{% endif %}>{{ item.color }} · {{ item.size }} {% if item.stock < 1 %}(esgotado){% else %}({{ item.stock }} disponíveis){% endif %}</option>{% endfor %}</select>
+<label for="quantity">Quantidade</label><input type="number" min="1" max="99" name="quantity" id="quantity" value="1" required>
+<button class="button button-dark wide" type="submit">ADICIONAR AO CARRINHO ↗</button></form>
+<a class="button button-outline wide" href="{% url 'cart' %}">VER MEU CARRINHO</a><div class="feature-list"><div>✧ Peças com design versátil</div><div>♡ Elegância em cada detalhe</div><div>ⓘ Frete e pagamento em integração</div></div></div></div></section>{% endblock %}

@@ -1,0 +1,23 @@
+ZÁVIA FITNESS — COMO SUBIR NO RENDER
+
+ESTE ZIP É UMA LOJA DJANGO / PYTHON, NÃO UM STATIC SITE.
+
+1. EXTRAIR o arquivo ZIP no computador.
+2. CRIAR repo GitHub zavia-ecommerce.
+3. ENVIAR TODOS os arquivos/pastas extraídos para o REPOSITÓRIO.
+4. Conferir que manage.py e render.yaml aparecem na TELA INICIAL do repo.
+5. RENDER > New > Blueprint (e não Static Site).
+6. CONECTAR repo e autorizar zavia-loja (Web) + zavia-db (Postgres).
+7. CONFERIR preço/plano disponível antes de confirmar.
+   Para ADMIN: Environment no serviço zavia-loja: ZAVIA_ADMIN_EMAIL e
+   ZAVIA_ADMIN_PASSWORD (senha forte, 12+ caracteres), fazer Manual Deploy
+   e depois remover estas variáveis.
+8. Após deploy, site em https://[nome-real].onrender.com/.
+
+LOJA: / ; ADMIN: /admin/ ; PAINEL: /painel/ ; SAÚDE: /health/
+
+NOTA: Esta primeira versão tem cadastro, produtos, estoque, carrinho,
+banco e painel. O checkout Mercado Pago e o frete ainda estão DESATIVADOS.
+Não aceitar pedidos reais até testes e homologação das integrações.
+
+Instruções completas no README.md.

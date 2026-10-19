@@ -1,0 +1,21 @@
+{% extends 'store/base.html' %}{% load static %}
+{% block content %}
+{% if not selected_category and not search %}
+<section class="hero"><div class="container hero-grid"><div class="hero-copy"><div class="kicker">NOVA COLEÇÃO · ZÁVIA STUDIO</div>
+<h1>Vista sua <em>essência.</em><br>Viva seu movimento.</h1>
+<p>O encontro do conforto com a sua melhor versão. Peças que acompanham sua força, seu ritmo e seu estilo.</p>
+<a class="button button-dark" href="#colecao">EXPLORAR COLEÇÃO <span>↗</span></a>
+<div class="hero-index">01 — 06 <span></span> COLEÇÃO ESSÊNCIA</div></div>
+<div class="hero-visual"><img src="{% static 'img/conjunto-mocha.webp' %}" alt="Moda fitness ZÁVIA em tom mocha"><div class="hero-sticker">MOVIMENTO<br><i>com</i> ELEGÂNCIA</div></div></div></section>
+<section class="usp-strip"><div class="container usp-grid"><span>✧ <b>DESIGN ATEMPORAL</b> &nbsp; Peças especiais</span><span>♡ <b>FEITA PARA VOCÊ</b> &nbsp; Conforto real</span><span>↗ <b>ESTILO EM MOVIMENTO</b> &nbsp; Versatilidade</span></div></section>
+<section class="container category-section"><div class="section-top"><div><span class="eyebrow">ZÁVIA EDIT</span><h2>Qual é o seu <em>mood?</em></h2></div><p>Dos treinos ao cotidiano, encontre suas peças favoritas.</p></div>
+<div class="category-grid"><a href="?categoria=leggings" class="category-tile"><img src="{% static 'img/legging-cacau.webp' %}" alt="Leggings"><span>LEGGINGS ↗</span></a><a href="?categoria=tops" class="category-tile"><img src="{% static 'img/top-areia.webp' %}" alt="Tops"><span>TOPS ↗</span></a><a href="?categoria=conjuntos" class="category-tile"><img src="{% static 'img/conjunto-rose.webp' %}" alt="Conjuntos"><span>CONJUNTOS ↗</span></a><a href="?categoria=shorts" class="category-tile"><img src="{% static 'img/short-rose.webp' %}" alt="Shorts"><span>SHORTS ↗</span></a></div>
+</section>
+{% endif %}
+<section class="container shop-section" id="colecao"><div class="section-top"><div><span class="eyebrow">SELEÇÃO ZÁVIA</span><h2>{% if search %}Resultados da <em>busca.</em>{% elif selected_category %}Nossa <em>seleção.</em>{% else %}Peças para <em>florescer.</em>{% endif %}</h2></div><form action="{% url 'home' %}" method="get" class="search-field"><input name="q" type="search" maxlength="80" value="{{ search }}" placeholder="O que você procura?" aria-label="Buscar produtos"><button type="submit">⌕</button></form></div>
+<div class="filters"><a class="{% if not selected_category %}selected{% endif %}" href="{% url 'home' %}#colecao">Todos</a>{% for category in categories %}<a href="{% url 'home' %}?categoria={{ category.slug }}#colecao" class="{% if selected_category == category.slug %}selected{% endif %}">{{ category.name }}</a>{% endfor %}</div>
+<div class="products-grid">{% for product in products %}{% include 'store/_product_card.html' %}{% empty %}<div class="empty-state">Nenhum produto encontrado nesta seleção.</div>{% endfor %}</div></section>
+{% if not selected_category and not search %}
+<section class="statement"><div class="container statement-inner"><span class="eyebrow">CORPO LIVRE, ALMA LEVE</span><h2>Seu corpo.<br><em>Sua história.</em><br>Sua força.</h2><a class="button button-light" href="#colecao">ENCONTRE SEU ESTILO ↗</a></div></section>
+{% endif %}
+{% endblock %}
