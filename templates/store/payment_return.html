@@ -1,0 +1,10 @@
+{% extends 'store/base.html' %}{% block title %}Pagamento | ZÁVIA{% endblock %}
+{% block content %}<section class="container inner-page narrow"><span class="eyebrow">ZÁVIA · SEU PEDIDO</span>
+<h1>Pedido <em>#{{ order.id }}</em></h1>
+{% if order.status == 'paid' or order.status == 'preparing' or order.status == 'shipped' or order.status == 'delivered' %}
+<div class="information-box"><h2>Pagamento confirmado!</h2><p>Recebemos a confirmação diretamente pela InfinitePay. Seu pedido será preparado conforme as condições informadas.</p></div>
+{% elif order.status == 'cancelled' or order.status == 'refunded' %}
+<div class="information-box"><h2>Pedido {{ order.get_status_display|lower }}</h2><p>Entre em contato com a loja caso precise de ajuda.</p></div>
+{% else %}<div class="information-box"><h2>Aguardando confirmação</h2><p>Recebemos seu retorno. O pagamento ainda não foi confirmado na ZÁVIA. O pagamento pode levar algum tempo; não realize outro pagamento antes de conferir o status.</p></div>{% endif %}
+<p>Total: <strong>R$ {{ order.total|floatformat:2 }}</strong></p>
+<a href="{% url 'profile' %}" class="button button-dark">VER MEUS PEDIDOS ↗</a></section>{% endblock %}

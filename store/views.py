@@ -80,8 +80,7 @@ def profile(request):
 
 
 def checkout(request):
-    lines,total,count=cart_lines(request)
-    return render(request,'store/checkout.html',{'lines':lines,'total':total,'count':count})
+    return redirect('payment_checkout')
 
 @staff_member_required
 def dashboard(request):
@@ -95,3 +94,138 @@ def dashboard(request):
 
 def health(request):
     return HttpResponse('ok',content_type='text/plain')
+
+# ---------------- InfinitePay Checkout Integrado ----------------
+import uuid
+from decimal import Decimal, InvalidOperation
+from django.conf import settings
+from django.db import transaction
+from django.db.models import F
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET
+from .cart import CART_KEY
+from .checkout_forms import CheckoutForm
+from .models import OrderItem
+from .infinitepay import create_payment_link, InfinitePayError, release_reservation, verify_and_apply, order_reference
+
+
+def checkout_ready():
+    try:
+        fixed = Decimal(settings.ZAVIA_SHIPPING_FLAT).quantize(Decimal('0.01'))
+    except (InvalidOperation, ValueError):
+        return False, None
+    if fixed < 0 or fixed > 1000 or not (settings.INFINITEPAY_API_KEY and settings.INFINITEPAY_TAG and settings.ZAVIA_CHECKOUT_ENABLED):
+        return False, None
+    return True, fixed
+
+
+@login_required
+def payment_checkout(request):
+    lines, subtotal, count = cart_lines(request)
+    ready, shipping = checkout_ready()
+    if not lines:
+        messages.error(request, 'Seu carrinho está vazio.')
+        return redirect('cart')
+    if not ready:
+        return render(request, 'store/checkout.html', {'configured': False, 'lines':lines, 'total':subtotal})
+    if any(not x['available'] or x['product'].is_demo for x in lines):
+        messages.error(request, 'Confira o estoque. Produtos ilustrativos não podem ser vendidos.')
+        return redirect('cart')
+    if not request.session.get('zavia_checkout_nonce'):
+        request.session['zavia_checkout_nonce'] = uuid.uuid4().hex
+    initial = {'full_name': request.user.get_full_name() or request.user.username, 'email': request.user.email}
+    form = CheckoutForm(request.POST or None, initial=initial)
+    grand_total = subtotal + shipping
+    if request.method == 'POST' and form.is_valid():
+        nonce = request.POST.get('nonce', '')
+        if not nonce or nonce != request.session.get('zavia_checkout_nonce'):
+            messages.error(request, 'Recarregue o checkout para confirmar seu pedido.')
+            return redirect('payment_checkout')
+        # HTTP externo sempre fora da transação; reserva de estoque com row locks no PostgreSQL.
+        order = None
+        with transaction.atomic():
+            ids = sorted(x['variant'].pk for x in lines)
+            locked = {v.pk: v for v in ProductVariant.objects.select_for_update().select_related('product').filter(pk__in=ids)}
+            current_lines = []
+            for row in lines:
+                variant = locked.get(row['variant'].pk)
+                if not variant or not variant.active or not variant.product.active or variant.product.is_demo or variant.stock < row['quantity']:
+                    messages.error(request, 'Uma peça ficou indisponível. Atualize seu carrinho.')
+                    return redirect('cart')
+                current_lines.append((variant, row['quantity'], variant.product.effective_price))
+            real_subtotal = sum((p * qty for v, qty, p in current_lines), Decimal('0'))
+            order = Order.objects.create(user=request.user, checkout_nonce=nonce,
+                customer_name=form.cleaned_data['full_name'], contact_email=form.cleaned_data['email'],
+                address=f"Telefone: {form.cleaned_data['phone']}\n{form.cleaned_address()}",
+                shipping_amount=shipping, total=real_subtotal + shipping,
+                payment_status='awaiting_payment', stock_reserved=True)
+            for variant, qty, price in current_lines:
+                ProductVariant.objects.filter(pk=variant.pk).update(stock=F('stock')-qty)
+                OrderItem.objects.create(order=order, variant=variant,
+                    description=f'{variant.product.name} — {variant.color}, {variant.size}',
+                    sku=variant.sku, quantity=qty, unit_price=price)
+        request.session.pop('zavia_checkout_nonce', None)
+        try:
+            base_url = request.build_absolute_uri('/').rstrip('/')
+            pref_id, redirect_url = create_payment_link(order, base_url)
+        except InfinitePayError:
+            release_reservation(order.pk)
+            messages.error(request, 'O pagamento não pôde ser iniciado. Nenhum valor foi cobrado. Tente novamente.')
+            return redirect('payment_checkout')
+        order.gateway_preference_id = pref_id
+        order.gateway_checkout_url = redirect_url
+        order.save(update_fields=['gateway_preference_id', 'gateway_checkout_url'])
+        request.session.pop(CART_KEY, None)
+        return redirect(redirect_url)
+    return render(request, 'store/checkout.html',
+                  {'configured': True, 'lines': lines, 'subtotal': subtotal,
+                   'shipping': shipping, 'total': grand_total,
+                   'form': form, 'nonce': request.session['zavia_checkout_nonce'],
+                   'checkout_provider':'InfinitePay'})
+
+
+@login_required
+@require_GET
+def payment_return(request, order_id):
+    order = get_object_or_404(Order, pk=order_id, user=request.user)
+    # Nunca confiar somente em parâmetros de retorno. Consulta autenticada à InfinitePay.
+    transaction_nsu = request.GET.get('transaction_nsu', '')
+    slug = request.GET.get('slug', '')
+    order_nsu = request.GET.get('order_nsu', '')
+    if order_nsu == order_reference(order.pk) and transaction_nsu and slug:
+        try:
+            verify_and_apply(order.pk, transaction_nsu, slug)
+            order.refresh_from_db()
+        except InfinitePayError:
+            pass  # O webhook/reconciliação poderá confirmar posteriormente.
+    return render(request, 'store/payment_return.html', {'order': order})
+
+
+@csrf_exempt
+@require_POST
+def payment_webhook(request):
+    # Não confiar no corpo: validar pagamento via API autenticada antes de qualquer alteração.
+    if len(request.body) > 16000:
+        return HttpResponse(status=413)
+    try:
+        import json
+        payload = json.loads(request.body)
+    except (ValueError, UnicodeDecodeError):
+        return HttpResponse(status=400)
+    if not isinstance(payload, dict):
+        return HttpResponse(status=400)
+    nsu = payload.get('order_nsu', '')
+    transaction_nsu = payload.get('transaction_nsu', '')
+    slug = payload.get('slug') or payload.get('invoice_slug')
+    if not (isinstance(nsu, str) and nsu.startswith('ZAVIA-') and nsu[6:].isdecimal()):
+        return HttpResponse(status=400)
+    if not (isinstance(transaction_nsu, str) and isinstance(slug, str)):
+        return HttpResponse(status=400)
+    if not (0 < len(transaction_nsu) <= 160 and 0 < len(slug) <= 160):
+        return HttpResponse(status=400)
+    try:
+        confirmed = verify_and_apply(int(nsu[6:]), transaction_nsu, slug)
+    except InfinitePayError:
+        return HttpResponse(status=503)
+    # 200 para eventos que não representam aprovação; nada é marcado pago sem confirmação.
+    return HttpResponse(status=200)

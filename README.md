@@ -1,99 +1,42 @@
-# ZÁVIA — E-commerce Fitness Feminino | v1.0 (Django + Render)
+# ZÁVIA — E-commerce v1.3 • InfinitePay (integração experimental)
 
-**Esta é uma aplicação Python REAL, diferente da prévia estática anterior.**
-Usa Django, produtos/categorias/variações em banco, sessões, carrinho, cadastro/login, dashboard e Django Admin.
-Utiliza a logo oficial ZÁVIA e campanha visual demonstrativa.
+Atualização do projeto Django publicado no Render. **Não altere o banco `zavia-db` e não mude a Gucci Cremas**. Esta versão preserva a migração `0002_mercadopago_checkout.py` por compatibilidade histórica: o nome da migração não determina o gateway ativo.
 
-## O que funciona nesta entrega
-- Loja pública responsiva, buscas e filtros por categoria.
-- Catálogo editável, preços, descrição e imagens por URL.
-- SKU + tamanho + cor + estoque por variação, gerenciados no painel.
-- Registro de clientes, login, sessões, carrinho persistente após login.
-- Painel `/painel/` (apenas staff) + Django Admin `/admin/` (usuário admin).
-- Migração de banco versionada e 6 produtos *demonstrativos*, cadastrados de modo idempotente.
-- Preparação PostgreSQL no Render. Arquivos CSS e imagens coletados por WhiteNoise.
+## O que foi trocado
+- Sai o adaptador Mercado Pago. Entra **InfinitePay Checkout Integrado** (`store/infinitepay.py`).
+- A cliente seleciona itens e endereço na ZÁVIA; o servidor gera um link de pagamento pelo endpoint `https://api.checkout.infinitepay.io/links`.
+- A InfinitePay retorna uma URL de checkout. Um webhook ou retorno passa identificadores; o servidor **sempre consulta o status via API autenticada `/payment_check`**, confere o pedido e total (centavos) antes de registrar pagamento.
+- Pix e cartão dependem de disponibilidade/configurações InfinitePay.
+- As cobranças ficam **desligadas** por padrão (`ZAVIA_CHECKOUT_ENABLED=0`).
 
-## O que AINDA NÃO funciona (não confundir com loja pronta para vender)
-- Pagamento Mercado Pago, PIX/cartão/boleto, webhooks e pedidos pagos.
-- Cálculo real de frete, rastreamento e faturamento real.
-- Upload persistente de mídia (Render tem armazenamento efêmero por padrão; use URLs externas permanentes ou configure storage antes de fotos definitivas).
-- Recuperação de senha por e-mail, cupons, avaliações, LGPD/políticas completas.
-- Reservas de estoque, concorrência em checkout e processamento de pedidos.
-A página de checkout explica claramente que **pagamentos não estão ativos**.
+## Como atualizar mantendo seus dados
+1. Faça um backup do PostgreSQL da ZÁVIA antes de modificar a aplicação.
+2. Envie os arquivos e pastas deste ZIP para o repositório GitHub da ZÁVIA, substituindo os anteriores. **Não** exclua o banco existente.
+3. O Render fará o deploy e executará as migrações (`build.sh`). O arquivo `render.yaml` permanece conectado ao mesmo serviço e mesmo banco.
+4. Teste `/health/`, `/admin/`, carrinho e páginas de produtos; mantenha o checkout desligado.
+5. Abra o app InfinitePay > Vendas > Checkout > Configurações > Habilitar Checkout Integrado e gere uma API Key (documentação oficial: https://ajuda.infinitepay.io/pt-BR/articles/10766888-como-usar-o-checkout-integrado-da-infinitepay).
+6. No Render > `zavia-loja` > Environment, configure:
+   - `INFINITEPAY_TAG`: sua InfiniteTag, sem `$`.
+   - `INFINITEPAY_API_KEY`: segredo `inchk_...` criado no aplicativo InfinitePay. **Não publique**.
+   - `ZAVIA_SHIPPING_FLAT`: frete fixo para testes, por exemplo `12.00` (em reais, decimal com ponto).
+   - `ZAVIA_CHECKOUT_ENABLED`: mantenha `0` enquanto os testes não forem concluídos.
+7. A URL que o backend envia ao gateway é `https://zavia-loja.onrender.com/pagamento/webhook/`. O provedor notifica a cada link pela configuração `webhook` enviada ao criar o checkout.
+8. A API pode receber `order_nsu` no retorno (formato `ZAVIA-123`) e não aceita parâmetro de URL como prova de quitação.
 
-## Deploy RECOMENDADO no Render com um Blueprint
+## Antes de vendas reais
+**NÃO ativar o checkout apenas porque o deploy subiu.** Precisamos verificar:
+- habilitação real da API Key, estrutura de respostas e notificações da sua conta InfinitePay;
+- ciclo de checkout fim-a-fim com transação real de valor pequeno e estorno;
+- cálculo/contratação do frete para CEPs reais (nesta versão, frete FIXO sem cotação);
+- produtos reais com preços, disponibilidade e fotos adequados (`is_demo=True` bloqueia venda);
+- cancelamentos e estornos, especialmente reconciliação de reservas de estoque de pedidos abandonados (pendência da v1.2).
 
-**Atenção: o antigo serviço `Static Site` não suporta esta versão Django.**
-Crie um novo **Web Service Python**, ou use a opção **New > Blueprint**. O ZIP só é entregue para facilitar o envio: não é enviado diretamente ao Render.
+### Configuração do Render
+Não precisa criar novos serviços ou bancos. `render.yaml`, `requirements.txt`, `manage.py` e `build.sh` permanecem na raiz.
 
-1. Extraia todo o ZIP no Windows.
-2. Crie um novo repositório GitHub (recomendado `zavia-ecommerce`, evitando confusão com o `zaviasite` estático).
-3. Faça upload de **todos os arquivos e pastas extraídos**, mantendo `render.yaml`, `manage.py`, `build.sh` e `requirements.txt` na RAIZ. Não envie apenas o ZIP nem crie uma pasta extra no repositório.
-4. Em https://dashboard.render.com abra **New > Blueprint**.
-5. Conecte o repositório e confirme os recursos propostos: `zavia-loja` (Web Python) e `zavia-db` (Postgres).
-6. Verifique eventuais custos e limitações do plano Render antes de clicar **Apply**. Os recursos free podem ter suspensão/expiração e não são recomendados como infraestrutura de uma loja em produção.
-7. Aguarde: o Render executa `bash build.sh` para instalar dependências, publicar estáticos e migrar/sementar o banco.
-8. Abra o endereço `.onrender.com` fornecido pelo Render e verifique `/health/`.
+### Limitações técnicas de segurança
+A documentação oficial do webhook InfinitePay não descreve assinatura para esta interface; o sistema trata **todo webhook como não confiável** e exige confirmação no endpoint autenticado `payment_check` com a API Key. Eventos de reembolso não alteram automaticamente o status do pedido; exigem conferência administrativa. **Sem testes reais, não há garantia de compatibilidade operacional em produção.**
 
-### Criar usuário do painel no Render
-No ambiente local, use `python manage.py createsuperuser`.
-No Render, execute o comando `python manage.py createsuperuser` em um console/shell do serviço (a disponibilidade do shell depende do plano). Se não houver shell, conecte-se ao PostgreSQL a partir de uma máquina local de confiança com `DATABASE_URL` **mantida em segredo**, rode `python manage.py createsuperuser` e encerre a conexão segura. Outra alternativa é um **job administrativo de execução única** configurado de modo seguro — nunca deixe senhas fixas no código nem publique scripts de superusuário.
-
-### Forma fácil de ativar o painel sem shell no Render
-No serviço **zavia-loja > Environment**, adicione temporariamente:
-- `ZAVIA_ADMIN_EMAIL` = seu e-mail de administração.
-- `ZAVIA_ADMIN_PASSWORD` = uma senha forte, exclusiva, com 12+ caracteres.
-
-Em **Manual Deploy > Deploy latest commit**, o comando `bootstrap_admin` criará
-um único superusuário caso ainda não exista nenhum. Depois que conseguir fazer
-login em `/admin/`, **exclua as duas variáveis do Render** (sem apagar o usuário
-no banco). O comando nunca mostra a senha nos logs e nunca altera senhas existentes.
-Não use senha repetida nem coloque as variáveis no GitHub ou no ZIP.
-
-### Alternativa: Web Service manual
-- Runtime: Python
-- Branch: `main`
-- Root Directory: vazio
-- Build Command: `bash build.sh`
-- Start Command: `gunicorn zavia.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120`
-- `DATABASE_URL`: string privada de conexão de banco PostgreSQL existente
-- `SECRET_KEY`: chave secreta longa, gerada no Render
-- `DEBUG`: `0`
-- **Nunca selecionar `Static Site` para este ZIP.**
-
-## Testar no Windows localmente
-Requer Python 3.11+ e conexão à internet para instalar bibliotecas.
-Abra o terminal na pasta extraída:
-
-```powershell
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-$env:DEBUG="1"
-py manage.py migrate
-py manage.py seed_demo
-py manage.py createsuperuser
-py manage.py runserver
-```
-
-Acesse `http://127.0.0.1:8000/` (loja) e `http://127.0.0.1:8000/admin/` (painel).
-Testes automatizados: `py manage.py test`.
-
-## Sobre o design
-A marca, logo e paleta oficial champagne/nude/rosé/preto estão incluídas. Fotografias de campanha e preços são ilustrações; devem ser substituídos por produtos reais antes da operação. Não utilize demo como catálogo comercial real.
-
-## Segurança / migrações
-- `SECRET_KEY` e `DATABASE_URL` são variáveis de ambiente; arquivo `.env` não vai para GitHub.
-- `DEBUG=0`, HTTPS, CSRF e cookies seguros no Render.
-- Os arquivos `store/migrations/` registram o esquema v1; usar `python manage.py makemigrations` apenas após mudanças nos modelos.
-- Não use uploads locais do Django no Render como armazenamento definitivo. Preferir serviço de objetos (S3/R2 etc.).
-- Backup de banco e termos/políticas comerciais devem ser configurados antes de liberar pagamento real.
-
-## Próximas entregas
-1. Integração Mercado Pago segura (Checkout Pro ou API oficial) com webhook, idempotência e validação.
-2. Frete e endereços persistentes.
-3. Checkout com transação e reserva de estoque.
-4. Análises financeiras sem dados fictícios.
-5. Armazenamento de imagens, testes end-to-end, revisão jurídica.
-
-**Nota de QA desta entrega:** o código contém testes Django em `store/tests.py`, mas a execução depende de instalar as dependências (PyPI/Render). A validação local estática não substitui um teste end-to-end no Render.
+Links oficiais:
+- https://www.infinitepay.io/checkout-documentacao
+- https://ajuda.infinitepay.io/pt-BR/articles/10766888-como-usar-o-checkout-integrado-da-infinitepay

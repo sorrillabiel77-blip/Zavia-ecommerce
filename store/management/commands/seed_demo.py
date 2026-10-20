@@ -20,7 +20,7 @@ class Command(BaseCommand):
             cat,_=Category.objects.get_or_create(slug=cat_slug,defaults={'name':cat_name})
             product,created=Product.objects.get_or_create(slug=slug,defaults={
                 'category':cat,'name':name,'description':desc,'price':Decimal(price),
-                'image_url':'/static/img/'+img,'featured':True,
+                'image_url':'/static/img/'+img,'featured':True,'is_demo':True,
             })
             if created:
                 created_count+=1

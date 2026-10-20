@@ -19,8 +19,8 @@ class ImageInline(admin.TabularInline):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name','category','price','sale_price','active','featured','stock_quantity')
-    list_filter = ('category','active','featured')
+    list_display = ('name','category','price','sale_price','is_demo','active','featured','stock_quantity')
+    list_filter = ('category','active','featured','is_demo')
     search_fields = ('name','slug','variants__sku')
     prepopulated_fields = {'slug': ('name',)}
     inlines = [VariantInline,ImageInline]
@@ -36,10 +36,10 @@ class OrderItemInline(admin.TabularInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('id','user','status','total','created_at')
+    list_display = ('id','user','status','payment_status','total','stock_reserved','created_at')
     list_filter = ('status','created_at')
     search_fields = ('user__email','contact_email','gateway_payment_id')
-    readonly_fields = ('user','created_at','total','shipping_amount','customer_name','contact_email','address','gateway_payment_id')
+    readonly_fields = ('user','created_at','total','shipping_amount','customer_name','contact_email','address','gateway_payment_id','gateway_preference_id','gateway_checkout_url','checkout_nonce','payment_status','stock_reserved','paid_at','status')
     inlines = [OrderItemInline]
     def has_add_permission(self, request): return False
     def has_delete_permission(self, request, obj=None): return False

@@ -30,10 +30,10 @@
   {% if messages %}<div class="container flash-area" role="status">{% for message in messages %}<div class="flash {% if message.tags %}{{ message.tags }}{% endif %}">{{ message }}</div>{% endfor %}</div>{% endif %}
   <main>{% block content %}{% endblock %}</main>
   <footer class="footer"><div class="container footer-grid">
-    <div><a href="{% url 'home' %}" class="footer-brand">ZÁVIA</a><p>Vista seu movimento. Sua força é a nossa inspiração.</p><small>Site de demonstração — produtos e preços ilustrativos.</small></div>
+    <div><a href="{% url 'home' %}" class="footer-brand">ZÁVIA</a><p>Vista seu movimento. Sua força é a nossa inspiração.</p><small>As peças demonstrativas da vitrine não estão à venda. Confira os produtos cadastrados pela loja.</small></div>
     <div><h4>Compre com estilo</h4><a href="{% url 'home' %}?categoria=leggings">Leggings</a><a href="{% url 'home' %}?categoria=tops">Tops</a><a href="{% url 'home' %}?categoria=conjuntos">Conjuntos</a></div>
-    <div><h4>Sua experiência</h4><a href="{% url 'cart' %}">Meu carrinho</a><a href="{% url 'profile' %}">Minha conta</a><a href="{% url 'checkout' %}">Pagamento (em configuração)</a></div>
-    <div><h4>Entre no universo ZÁVIA</h4><p>Moda fitness feminina com personalidade e leveza.</p><span class="footer-tag">Exibição de teste · Nenhuma cobrança ativa</span></div>
-  </div><div class="container footer-bottom">© 2026 ZÁVIA · Pré-lançamento · Ambiente demonstrativo</div></footer>
+    <div><h4>Sua experiência</h4><a href="{% url 'cart' %}">Meu carrinho</a><a href="{% url 'profile' %}">Minha conta</a><a href="{% url 'checkout' %}">Finalizar compra</a></div>
+    <div><h4>Entre no universo ZÁVIA</h4><p>Moda fitness feminina com personalidade e leveza.</p><span class="footer-tag">Checkout InfinitePay quando habilitado</span></div>
+  </div><div class="container footer-bottom">© 2026 ZÁVIA · Todos os direitos reservados</div></footer>
 </body>
 </html>

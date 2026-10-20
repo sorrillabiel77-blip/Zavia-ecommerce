@@ -24,6 +24,7 @@ class Product(models.Model):
     cost_price = models.DecimalField('Custo', max_digits=10, decimal_places=2, default=0)
     image_url = models.CharField('Imagem principal (URL/estático)', max_length=500, default='/static/img/conjunto-mocha.webp')
     featured = models.BooleanField('Destaque', default=False)
+    is_demo = models.BooleanField('Produto ilustrativo — não vender', default=False)
     active = models.BooleanField('Ativo', default=True)
     created_at = models.DateTimeField('Criado em', auto_now_add=True)
     class Meta:
@@ -78,6 +79,12 @@ class Order(models.Model):
     address = models.TextField(blank=True)
     gateway_payment_id = models.CharField(max_length=140, blank=True)
     notes = models.TextField(blank=True)
+    gateway_preference_id = models.CharField(max_length=160, blank=True)
+    gateway_checkout_url = models.URLField(max_length=1000, blank=True)
+    checkout_nonce = models.CharField(max_length=50, null=True, blank=True, unique=True)
+    payment_status = models.CharField(max_length=40, blank=True, default='not_started')
+    stock_reserved = models.BooleanField(default=False)
+    paid_at = models.DateTimeField(null=True, blank=True)
     class Meta:
         verbose_name = 'Pedido'
         verbose_name_plural = 'Pedidos'

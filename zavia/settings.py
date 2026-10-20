@@ -83,3 +83,10 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 # Configuração SMTP de recuperação de senha deverá ser instalada antes de liberar o fluxo.
+
+# InfinitePay Checkout Integrado. Segredos somente no Render > Environment.
+INFINITEPAY_API_KEY = os.environ.get('INFINITEPAY_API_KEY', '').strip()
+INFINITEPAY_TAG = os.environ.get('INFINITEPAY_TAG', '').strip().lstrip('$')
+ZAVIA_CHECKOUT_ENABLED = os.environ.get('ZAVIA_CHECKOUT_ENABLED', '0') == '1'
+# Frete FIXO provisório, definido pela loja (não é uma cotação de transportadora).
+ZAVIA_SHIPPING_FLAT = os.environ.get('ZAVIA_SHIPPING_FLAT', '').strip()
