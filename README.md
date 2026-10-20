@@ -1,37 +1,40 @@
-# ZÁVIA v1.6.1 — somente catálogo vazio e fotos reais
+# ZÁVIA v1.6.3 — Correção pontual do carrinho após exclusão de produtos
 
-Esta atualização modifica **somente** a limpeza dos produtos antigos e o cadastro de fotos. O restante da v1.5 (layout, painel, InfinitePay, frete, autenticação, banco e URLs) permanece igual.
+Esta versão é derivada **diretamente da v1.6.2** e conserva frete fixo, favicon oficial,
+catálogo destinado aos produtos reais, galeria de fotos, painel administrativo e InfinitePay.
 
-## O que acontece no primeiro deploy
+## Erro corrigido
+Ao excluir ou desativar produtos no Admin, os identificadores permaneciam na sessão
+`zavia_cart_v1`. O badge do cabeçalho contabilizava o conteúdo antigo da sessão,
+independentemente da existência do produto no banco de dados. Por isso aparecia
+"1" apesar de o catálogo estar vazio.
 
-- A migração `0005_limpeza_unica_catalogo` remove **TODOS** os produtos atualmente cadastrados, inclusive fictícios e reais anteriores, junto com variações e respectivas fotos. A exclusão não deixa produtos antigos arquivados no Admin.
-- **Categorias, clientes e pedidos NÃO são apagados.** Se existirem pedidos antigos, a descrição, o SKU, a quantidade e o preço permanecem no histórico, mas a referência à variação antiga fica vazia (`NULL`).
-- O catálogo público e a administração de **Produtos** começarão com zero itens.
-- A limpeza roda **uma única vez**. Nenhum produto novo será apagado em futuras implantações.
-- Imagens estáticas de produtos fictícios foram removidas da vitrine. A logo oficial continua.
+Agora tanto o contador quanto a página do carrinho consultam os SKUs ativos no
+banco. Produtos/variações inexistentes ou desativados são removidos **automaticamente
+da sessão** na próxima requisição. Itens ainda válidos permanecem, assim como seus
+tamanhos, cores e quantidades. Produtos apenas esgotados permanecem visíveis, com aviso.
+Entradas inválidas na sessão também são descartadas.
 
-**ATENÇÃO:** a remoção de todos os produtos antigos é permanente. Verifique antes que não haja pagamentos em aberto ligados a eles, e salve um backup antes de publicar. Se já implantou o ZIP v1.6 anterior, consulte o histórico de migrações antes de instalar esta revisão: a migração `0005` que já rodou não executa novamente.
+## Arquivos de código alterados
+- `store/cart.py`: validação/sincronização da sessão com catálogo; contador consistente;
+  normalização de valores e invalidação do cache de requisição ao alterar itens.
+- `store/context_processors.py`: contador usa a mesma função de validação do carrinho.
+- `store/tests.py`: testes de exclusão, arquivamento/desativação, alterações de variação,
+  sessão inválida e preservação de produtos válidos.
 
-## Como cadastrar seus produtos COM suas fotos
+Não foram feitas modificações nas migrações, no banco de dados, na identidade visual,
+no frete, nos métodos de pagamento ou no painel administrativo.
 
-1. Acesse `https://zavia-loja.onrender.com/admin/`.
-2. Entre em **Produtos → Adicionar produto**.
-3. Preencha nome, categoria, preço, descrição e estoque nas variações.
-4. No fim da página, na seção **Fotos reais**, clique em **Selecionar arquivo** e escolha uma foto JPG/PNG/WebP do seu aparelho.
-5. Use **Adicionar outra Imagem de produto** para enviar a segunda, terceira e outras fotos.
-6. Coloque **Posição 0** na foto principal, 1 na seguinte, 2 na próxima etc.
-7. Salve. Todas as fotos aparecerão na galeria da página do produto.
+## Atualização sem recriar a loja
+1. Guarde o commit estável do GitHub; faça backup do banco se houver dados comerciais.
+2. Extraia o ZIP e envie **seu conteúdo** ao mesmo repositório da ZÁVIA,
+   mantendo os arquivos na raiz; evite excluir o repositório.
+3. Confira GitHub Actions: `python manage.py test store`.
+4. Se passar, no Render `zavia-loja` publique `Deploy latest commit`.
+5. Abra a loja/carrinho: sem produtos cadastrados, o badge deve exibir **0**;
+   ao cadastrar e adicionar um produto real ao carrinho, a contagem volta a funcionar.
 
-Nesta versão de teste, as novas fotos ficam gravadas em formato WebP otimizado no PostgreSQL, não no disco temporário do Render. **Não guardamos nem reutilizamos fotos de produtos antigos.** Novas fotos precisam ser armazenadas para a loja poder mostrá-las.
+**Mantenha `ZAVIA_CHECKOUT_ENABLED=0`.** Não é uma validação do pagamento InfinitePay.
 
-**Limitação do Render Free:** o banco de testes possui prazo de validade e não substitui um armazenamento duradouro para fotos. Não libere vendas reais sem validar pagamentos, backups e armazenamento permanente.
-
-## Atualização e checagem
-
-1. Preserve um backup/commit anterior. Confirme que deseja excluir permanentemente TODO o catálogo antigo.
-2. Extraia o ZIP e envie os arquivos à raiz do GitHub da ZÁVIA. Espere os testes em GitHub Actions passarem.
-3. Faça o deploy no Render, confirmando a execução da migração 0005.
-4. Confira **Produtos = 0** em `/admin/store/product/`, a vitrine vazia e `/health/` respondendo `ok`.
-5. Cadastre um produto real com duas fotos e confira a capa e as miniaturas na loja.
-
-Mantenha `ZAVIA_CHECKOUT_ENABLED=0` por enquanto; nenhuma alteração foi feita ao módulo de pagamento.
+Validação local: compilação de código, testes isolados da sincronização com modelos
+simulados e conferência dos arquivos ZIP. A execução integral de Django cabe ao CI.

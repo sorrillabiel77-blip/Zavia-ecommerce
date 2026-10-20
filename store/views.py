@@ -51,8 +51,16 @@ def cart_add(request):
 
 
 def cart(request):
-    lines,total,count=cart_lines(request)
-    return render(request,'store/cart.html',{'lines':lines,'total':total,'count':count})
+    lines, total, count = cart_lines(request)
+    shipping = fixed_shipping_amount()
+    return render(request, 'store/cart.html', {
+        'lines': lines,
+        'total': total,
+        'count': count,
+        'shipping': shipping,
+        'shipping_configured': shipping is not None,
+        'total_with_shipping': total + shipping if shipping is not None else None,
+    })
 
 @require_POST
 def cart_update(request):
@@ -151,14 +159,22 @@ from .models import OrderItem
 from .infinitepay import create_payment_link, InfinitePayError, verify_and_apply, order_reference
 
 
-def checkout_ready():
+def fixed_shipping_amount():
+    """Obtém o frete fixo, independentemente de o pagamento estar habilitado."""
     try:
-        fixed = Decimal(settings.ZAVIA_SHIPPING_FLAT).quantize(Decimal('0.01'))
-    except (InvalidOperation, ValueError):
-        return False, None
-    if fixed < 0 or fixed > 1000 or not (settings.INFINITEPAY_API_KEY and settings.INFINITEPAY_TAG and settings.ZAVIA_CHECKOUT_ENABLED):
-        return False, None
-    return True, fixed
+        fixed = Decimal(str(settings.ZAVIA_SHIPPING_FLAT).replace(',', '.')).quantize(Decimal('0.01'))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    if not fixed.is_finite() or fixed < 0 or fixed > 1000:
+        return None
+    return fixed
+
+
+def checkout_ready():
+    fixed = fixed_shipping_amount()
+    ready = (fixed is not None and bool(settings.INFINITEPAY_API_KEY)
+             and bool(settings.INFINITEPAY_TAG) and settings.ZAVIA_CHECKOUT_ENABLED)
+    return bool(ready), fixed
 
 
 @login_required
@@ -169,7 +185,7 @@ def payment_checkout(request):
         messages.error(request, 'Seu carrinho está vazio.')
         return redirect('cart')
     if not ready:
-        return render(request, 'store/checkout.html', {'configured': False, 'lines':lines, 'total':subtotal})
+        return render(request, 'store/checkout.html', {'configured': False, 'lines':lines, 'total':subtotal, 'shipping':shipping, 'shipping_configured':shipping is not None, 'total_with_shipping':subtotal + shipping if shipping is not None else None})
     if any(not x['available'] or x['product'].is_demo for x in lines):
         messages.error(request, 'Confira o estoque. Produtos ilustrativos não podem ser vendidos.')
         return redirect('cart')

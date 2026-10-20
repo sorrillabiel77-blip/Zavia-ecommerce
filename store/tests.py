@@ -287,3 +287,101 @@ class AdminProductManagementTests(TestCase):
         self.assertContains(response,'Estamos preparando a coleção ZÁVIA')
         self.assertNotContains(response,'Conjunto Real')
         self.assertNotContains(response,'conjunto-mocha.webp')
+
+
+class FreteEFaviconTests(StoreTests):
+    @override_settings(ZAVIA_SHIPPING_FLAT='15.00', ZAVIA_CHECKOUT_ENABLED=False)
+    def test_carrinho_mostra_frete_fixo_mesmo_com_checkout_desligado(self):
+        self.client.post(reverse('cart_add'), {'variant_id':self.variant.pk, 'quantity':1})
+        response = self.client.get(reverse('cart'))
+        self.assertContains(response, 'frete fixo')
+        self.assertContains(response, '15,00')
+        self.assertContains(response, '164,90')
+        self.assertNotContains(response, 'Em configuração')
+
+    @override_settings(ZAVIA_SHIPPING_FLAT='15.00', ZAVIA_CHECKOUT_ENABLED=False)
+    def test_checkout_bloqueado_nao_confunde_frete_com_pagamento(self):
+        user = User.objects.create_user(username='cliente-frete', password='SenhaSegura123!')
+        self.client.force_login(user)
+        self.client.post(reverse('cart_add'), {'variant_id':self.variant.pk, 'quantity':1})
+        response = self.client.get(reverse('checkout'))
+        self.assertContains(response, 'O frete fixo já está definido')
+        self.assertContains(response, '15,00')
+        self.assertContains(response, 'temporariamente desativado')
+        self.assertNotContains(response, 'política de frete')
+
+    @override_settings(ZAVIA_SHIPPING_FLAT='15,00', ZAVIA_CHECKOUT_ENABLED=False)
+    def test_frete_aceita_virgula_decimal_brasileira(self):
+        self.client.post(reverse('cart_add'), {'variant_id':self.variant.pk, 'quantity':1})
+        self.assertContains(self.client.get(reverse('cart')), '164,90')
+
+    @override_settings(ZAVIA_SHIPPING_FLAT='0', ZAVIA_CHECKOUT_ENABLED=False)
+    def test_frete_zero_aparece_gratis(self):
+        self.client.post(reverse('cart_add'), {'variant_id':self.variant.pk, 'quantity':1})
+        self.assertContains(self.client.get(reverse('cart')), 'Grátis')
+
+    @override_settings(ZAVIA_SHIPPING_FLAT='', ZAVIA_CHECKOUT_ENABLED=False)
+    def test_frete_ausente_informa_realidade(self):
+        self.client.post(reverse('cart_add'), {'variant_id':self.variant.pk, 'quantity':1})
+        self.assertContains(self.client.get(reverse('cart')), 'Frete ainda não definido')
+
+    def test_logomarca_em_favicon_da_aba(self):
+        response = self.client.get(reverse('home'))
+        self.assertContains(response, 'favicon.ico')
+        self.assertContains(response, 'apple-touch-icon.png')
+
+
+class CarrinhoSincronizadoTests(StoreTests):
+    """Regressão: catálogo limpo não pode deixar badge 1 no cabeçalho."""
+
+    def test_produto_excluido_limpa_contador_e_sessao(self):
+        self.client.post(reverse('cart_add'), {'variant_id': self.variant.pk, 'quantity': 1})
+        self.assertContains(self.client.get(reverse('home')), 'badge-count')
+        self.assertEqual(self.client.session.get('zavia_cart_v1'), {str(self.variant.pk): 1})
+        Product.objects.filter(pk=self.product.pk).delete()
+        pagina = self.client.get(reverse('home'))
+        self.assertContains(pagina, '<span class="badge-count">0</span>', html=True)
+        self.assertEqual(self.client.session.get('zavia_cart_v1'), {})
+        self.assertContains(self.client.get(reverse('cart')), 'Seu carrinho está esperando você')
+
+    def test_produto_desativado_sai_da_sessao(self):
+        self.client.post(reverse('cart_add'), {'variant_id': self.variant.pk, 'quantity': 2})
+        Product.objects.filter(pk=self.product.pk).update(active=False)
+        self.assertContains(self.client.get(reverse('cart')), 'Seu carrinho está esperando você')
+        self.assertEqual(self.client.session.get('zavia_cart_v1'), {})
+        self.assertContains(self.client.get(reverse('home')), '<span class="badge-count">0</span>', html=True)
+
+    def test_variacao_excluida_sai_mas_preserva_itens_validos(self):
+        new_product = Product.objects.create(category=self.product.category, name='Produto novo',
+                                             slug='produto-novo', price=Decimal('49.90'))
+        new_variant = ProductVariant.objects.create(product=new_product, sku='NOVO-P',
+                                                    size='P', color='Bege', stock=3)
+        self.client.post(reverse('cart_add'), {'variant_id':self.variant.pk,'quantity':1})
+        self.client.post(reverse('cart_add'), {'variant_id':new_variant.pk,'quantity':2})
+        ProductVariant.objects.filter(pk=self.variant.pk).delete()
+        pagina = self.client.get(reverse('cart'))
+        self.assertNotContains(pagina, 'Legging Teste')
+        self.assertContains(pagina, 'Produto novo')
+        self.assertEqual(self.client.session.get('zavia_cart_v1'), {str(new_variant.pk):2})
+        self.assertContains(pagina, '<span class="badge-count">2</span>', html=True)
+
+    def test_variacao_desativada_limpa_carrinho(self):
+        self.client.post(reverse('cart_add'), {'variant_id': self.variant.pk, 'quantity': 1})
+        ProductVariant.objects.filter(pk=self.variant.pk).update(active=False)
+        self.assertContains(self.client.get(reverse('home')), '<span class="badge-count">0</span>', html=True)
+        self.assertEqual(self.client.session.get('zavia_cart_v1'), {})
+
+    def test_quantidades_e_ids_invalidos_na_sessao_nao_quebram_loja(self):
+        session = self.client.session
+        session['zavia_cart_v1'] = {'invalido': 8, '-123': 1, '0': 5,
+                                    str(self.variant.pk): 'valor-errado', '9999999999999999999999999':1}
+        session.save()
+        pagina = self.client.get(reverse('home'))
+        self.assertContains(pagina, '<span class="badge-count">0</span>', html=True)
+        self.assertEqual(self.client.session.get('zavia_cart_v1'), {})
+
+    def test_item_valido_continua_no_carrinho(self):
+        self.client.post(reverse('cart_add'), {'variant_id': self.variant.pk, 'quantity': 2})
+        self.assertContains(self.client.get(reverse('cart')), '299,80')
+        self.assertContains(self.client.get(reverse('home')), '<span class="badge-count">2</span>', html=True)
+        self.assertEqual(self.client.session.get('zavia_cart_v1'), {str(self.variant.pk): 2})

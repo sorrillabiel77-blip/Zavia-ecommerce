@@ -2,7 +2,9 @@
 {% block content %}<section class="container inner-page narrow">
 <span class="eyebrow">ZÁVIA · CHECKOUT SEGURO</span><h1>Finalize sua <em>compra.</em></h1>
 {% if not configured %}<div class="information-box"><h3>Pagamento indisponível por enquanto</h3>
-<p>Estamos configurando a integração InfinitePay e a política de frete. Nenhuma cobrança pode ser feita nesta etapa.</p></div>
+<p>O pagamento pela InfinitePay permanece temporariamente desativado enquanto realizamos os testes de segurança. Nenhuma cobrança pode ser feita nesta etapa.</p>
+{% if shipping_configured %}<p>O frete fixo já está definido: <strong>{% if shipping == 0 %}Grátis{% else %}R$ {{ shipping|floatformat:2 }}{% endif %}</strong>. Total com frete: <strong>R$ {{ total_with_shipping|floatformat:2 }}</strong>.</p>
+{% else %}<p>O frete ainda não foi definido no ambiente da loja.</p>{% endif %}</div>
 <a class="button button-dark" href="{% url 'cart' %}">VOLTAR AO CARRINHO ↗</a>
 {% else %}
 

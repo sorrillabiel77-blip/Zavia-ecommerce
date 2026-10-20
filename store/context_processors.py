@@ -1,5 +1,7 @@
-from .cart import get_cart
+"""Cabeçalho e carrinho devem contar apenas produtos ainda existentes."""
+from .cart import cart_lines
+
 
 def cart_summary(request):
-    cart = get_cart(request)
-    return {'cart_count': sum(max(0,min(99,int(v))) for v in cart.values() if str(v).isdigit())}
+    _lines, _total, count = cart_lines(request)
+    return {'cart_count': count}
