@@ -4,6 +4,7 @@ Não confiar em parâmetros de redirecionamento ou conteúdo do webhook.
 A confirmação requer payment_check autenticado e checagem de pedido/valor.
 """
 import json
+from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
@@ -66,12 +67,16 @@ def create_payment_link(order, base_url):
         'redirect_url': f'{base_url}/pagamento/retorno/{order.pk}/',
         'items': items,
         'customer': {'name': order.customer_name, 'email': order.contact_email},
-        'options': {'single_payment': True, 'payment_methods_enabled': ['credit_card', 'pix']},
+        'options': {'single_payment': True,
+                    'valid_until': order.payment_expires_at.isoformat() if order.payment_expires_at else None,
+                    'payment_methods_enabled': ['credit_card', 'pix']},
         'webhook': {
             'url': f'{base_url}/pagamento/webhook/',
             'events': ['paid', 'refunded', 'canceled', 'payment_failed'],
         },
     }
+    if not order.payment_expires_at or order.payment_expires_at <= timezone.now():
+        raise InfinitePayError('Pedido sem prazo válido de pagamento')
     if not settings.INFINITEPAY_API_KEY:
         # Por segurança, a ZÁVIA exige API Key mesmo existindo um modo sem chave.
         raise InfinitePayError('API Key obrigatória na integração ZÁVIA')
@@ -139,3 +144,36 @@ def release_reservation(order_id):
         order.status = 'cancelled'
         order.payment_status = 'link_error'
         order.save(update_fields=['stock_reserved','status','payment_status'])
+
+
+def release_abandoned_after_manual_confirmation(order_id, *, staff_user, provider_checked=False):
+    """Revogação MANUAL: só após expiração + 24h e conferência de NÃO pagamento
+    diretamente na InfinitePay. Em caso de dúvida, NÃO liberar estoque.
+
+    Não confundir expiração do link com confirmação de não pagamento.
+    Chamadas repetidas não somam estoque duas vezes.
+    """
+    if not provider_checked or not staff_user or not staff_user.is_staff:
+        raise ValueError('A conferência manual por um administrador é obrigatória')
+    with transaction.atomic():
+        order = Order.objects.select_for_update().get(pk=order_id)
+        if not order.stock_reserved or order.status != 'pending_payment':
+            return False
+        if not order.payment_expires_at or timezone.now() < order.payment_expires_at + timedelta(hours=24):
+            raise ValueError('Aguarde pelo menos 24h após vencer o prazo antes de analisar')
+        # Também permite liberação MANUAL de timeout sem URL, sujeito à mesma
+        # quarentena e à conferência explícita do order_nsu diretamente no provedor.
+        if not order.gateway_checkout_url and order.payment_status not in ('link_creation_uncertain', 'awaiting_payment'):
+            raise ValueError('Sem link validado: procure suporte antes de liberar')
+        if order.gateway_payment_id or order.paid_at:
+            raise ValueError('O pedido tem registro de pagamento; NÃO devolver estoque')
+        for item in order.items.all():
+            ProductVariant.objects.filter(pk=item.variant_id).update(stock=F('stock') + item.quantity)
+        order.stock_reserved = False
+        order.status = 'cancelled'
+        order.payment_status = 'manually_confirmed_unpaid'
+        order.notes = ((order.notes or '') + '\n' +
+                       f'[{timezone.now().isoformat()}] Cancelamento manual após conferência '
+                       f'InfinitePay; operador={staff_user.pk}').strip()
+        order.save(update_fields=['stock_reserved','status','payment_status','notes'])
+        return True

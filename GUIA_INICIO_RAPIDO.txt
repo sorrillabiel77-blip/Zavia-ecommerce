@@ -1,8 +1,18 @@
-ZÁVIA v1.3 — InfinitePay + Render
+ZÁVIA v1.6.1 — CATÁLOGO ZERO E FOTOS DE PRODUTOS REAIS
 
-1. Backup do banco ZÁVIA.
-2. Extrair ZIP e enviar TODO conteúdo para repositório GitHub ZÁVIA.
-3. Aguardar deploy Render.
-4. No app InfinitePay: Vendas > Checkout > Configurações > Habilitar Checkout Integrado; criar API Key.
-5. Render > zavia-loja > Environment: INFINITEPAY_TAG e INFINITEPAY_API_KEY (não compartilhe); frete ZAVIA_SHIPPING_FLAT; manter ZAVIA_CHECKOUT_ENABLED=0.
-6. Testar checkout/pedidos e configurar logística, produtos reais e expiração de reservas ANTES de ativar vendas.
+ATENÇÃO: A PRIMEIRA IMPLANTAÇÃO EXCLUI TODOS OS PRODUTOS E FOTOS ANTERIORES. PEDIDOS ANTIGOS, SE EXISTIREM, MANTÊM SOMENTE SEU HISTÓRICO SEM O PRODUTO VINCULADO. FAÇA BACKUP ANTES.
+
+1. Baixe e extraia o ZIP. Não envie o ZIP fechado.
+2. Confira backup do PostgreSQL atual e preserve o último commit da v1.5.
+3. Atualize os arquivos do GitHub conectados ao Render.
+4. Aguarde os testes do GitHub Actions; só então faça deploy manual.
+5. Render > zavia-loja > Deploy latest commit. Checkout continua DESLIGADO.
+6. Acesse /admin/ > Produtos > Adicionar: nome, categoria, preço, foto(s), variações e estoque.
+7. Na Galeria, clique em Selecionar arquivo. Use Adicionar outra para várias fotos.
+8. A foto de Posição 0 vira a capa. Teste editar/trocar fotos.
+9. Verifique loja vazia antes do cadastro e depois a exibição de seu produto real.
+
+Nesta versão de TESTES, fotos otimizadas ficam no PostgreSQL; não se perdem ao reiniciar o Render,
+mas dependem da existência do banco gratuito, que não possui retenção/backup apropriados para vendas.
+
+Não alteramos InfinitePay nem fluxo financeiro. Confira README.md antes de publicar.

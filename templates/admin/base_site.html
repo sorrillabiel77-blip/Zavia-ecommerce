@@ -1,0 +1,5 @@
+{% extends "admin/base.html" %}{% load static %}
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | ZÁVIA Studio{% endblock %}
+{% block branding %}<div class="zavia-admin-brand"><a href="{% url 'admin:index' %}"><span class="zavia-brand-title">ZÁVIA</span><span class="zavia-brand-caption">STUDIO ADMIN</span></a></div>{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin/zavia.css' %}">{% endblock %}
+{% block nav-global %}<a class="zavia-admin-toplink" href="{% url 'dashboard' %}">◈ Painel visual</a> <a class="zavia-admin-toplink" href="{% url 'home' %}" target="_blank" rel="noopener">↗ Ver loja</a>{% endblock %}

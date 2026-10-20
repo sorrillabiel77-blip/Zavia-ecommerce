@@ -1,5 +1,5 @@
 <div class="product-card">
-  <a href="{{ product.get_absolute_url }}" class="product-photo" aria-label="Ver {{ product.name }}"><img src="{{ product.image_url }}" alt="{{ product.name }}" loading="lazy"><span class="photo-arrow">↗</span></a>
+  <a href="{{ product.get_absolute_url }}" class="product-photo" aria-label="Ver {{ product.name }}">{% if product.main_photo_url %}<img src="{{ product.main_photo_url }}" alt="{{ product.name }}" loading="lazy">{% else %}<div class="no-product-photo">FOTO EM PREPARAÇÃO</div>{% endif %}<span class="photo-arrow">↗</span></a>
   <div class="product-meta"><span>{{ product.category.name }}</span>{% if product.featured %}<span>DESTAQUE</span>{% endif %}</div>
   <a href="{{ product.get_absolute_url }}" class="product-title">{{ product.name }}</a>
   <div class="price-row"><strong>R$ {{ product.effective_price|floatformat:2 }}</strong>{% if product.sale_price and product.sale_price < product.price %}<del>R$ {{ product.price|floatformat:2 }}</del>{% endif %}</div>

@@ -1,5 +1,52 @@
-{% extends 'store/base.html' %}{% block title %}Painel | ZÁVIA{% endblock %}
-{% block content %}<section class="container inner-page"><span class="eyebrow">BACKOFFICE ZÁVIA</span><h1>Gestão da <em>loja.</em></h1><p>Dados reais do banco de dados. O faturamento ficará disponível quando houver integração de pagamentos confirmados.</p>
-<div class="metric-grid"><div><span>Produtos</span><strong>{{ products_count }}</strong></div><div><span>Variações</span><strong>{{ variants_count }}</strong></div><div><span>Unidades em estoque</span><strong>{{ stock_count }}</strong></div><div><span>Pedidos</span><strong>{{ orders_count }}</strong></div></div>
-<div class="dashboard-cols"><div class="dashboard-panel"><h3>Gerenciamento</h3><a href="{% url 'admin:store_product_changelist' %}">↗ Cadastrar e editar produtos</a><a href="{% url 'admin:store_category_changelist' %}">↗ Administrar categorias</a><a href="{% url 'admin:store_productvariant_changelist' %}">↗ Estoque por tamanho/cor</a><a href="{% url 'admin:store_order_changelist' %}">↗ Consultar pedidos</a><a href="{% url 'admin:index' %}">↗ Django Admin completo</a></div><div class="dashboard-panel"><h3>Estoque baixo (até 3)</h3>{% for v in low_stock %}<p>{{ v.product.name }} · {{ v.size }} · {{ v.color }} — <b>{{ v.stock }}</b></p>{% empty %}<p>Nenhum item com estoque baixo.</p>{% endfor %}</div></div>
-<p class="information-box">Indicadores financeiros estarão bloqueados até a integração real de pagamentos; não serão exibidos lucros ou recebimentos fictícios.</p></section>{% endblock %}
+{% extends 'store/base.html' %}{% block title %}Painel de Gestão | ZÁVIA{% endblock %}
+{% block content %}
+<section class="zavia-backoffice">
+  <div class="container">
+    <div class="backoffice-top">
+      <div><span class="backoffice-eyebrow">ZÁVIA · STUDIO OPERACIONAL</span><h1>Gestão da <em>loja.</em></h1><p>Seu centro de controle para produtos, estoque e acompanhamento dos pedidos.</p></div>
+      <div class="backoffice-actions"><a class="backoffice-btn solid" href="{% url 'admin:store_product_add' %}">＋ Cadastrar produto</a><a class="backoffice-btn" href="{% url 'admin:index' %}">Abrir administração ↗</a></div>
+    </div>
+
+    <div class="backoffice-metrics">
+      <div class="bo-metric"><span>Produtos reais publicados</span><strong>{{ active_products_count }}</strong><small>Visíveis no catálogo</small></div>
+      <div class="bo-metric"><span>Unidades disponíveis</span><strong>{{ stock_count }}</strong><small>SKU ativos de produtos reais</small></div>
+      <div class="bo-metric"><span>Pedidos aguardando pagamento</span><strong>{{ pending_count }}</strong><small>Precisam de acompanhamento</small></div>
+      <div class="bo-metric"><span>Pedidos confirmados*</span><strong>{{ paid_count }}</strong><small>Pagos, em preparo ou entregues</small></div>
+    </div>
+
+    <div class="backoffice-columns">
+      <section class="bo-panel">
+        <div class="bo-panel-title"><div><span class="backoffice-eyebrow">CATÁLOGO</span><h2>Seus produtos</h2></div><a href="{% url 'admin:store_product_changelist' %}">Ver todos ↗</a></div>
+        <p class="bo-intro">Gerencie preços, tamanhos, cores, descrições e visibilidade.</p>
+        <div class="bo-quick-links">
+          <a href="{% url 'admin:store_product_add' %}"><b>＋</b><span><strong>Novo produto</strong><small>Cadastro e upload de fotos</small></span><i>↗</i></a>
+          <a href="{% url 'admin:store_product_changelist' %}"><b>▤</b><span><strong>Editar catálogo</strong><small>Publicar, arquivar ou excluir</small></span><i>↗</i></a>
+          <a href="{% url 'admin:store_productvariant_changelist' %}"><b>◫</b><span><strong>Variações e estoque</strong><small>SKU por tamanho e cor</small></span><i>↗</i></a>
+          <a href="{% url 'admin:store_category_changelist' %}"><b>◈</b><span><strong>Categorias</strong><small>Leggings, tops, conjuntos...</small></span><i>↗</i></a>
+        </div>
+      </section>
+      <section class="bo-panel demo-panel">
+        <div class="bo-panel-title"><div><span class="backoffice-eyebrow">SEUS PRODUTOS REAIS</span><h2>Cadastre suas peças e fotos</h2></div><span class="bo-count">{{ products_count }} produto(s)</span></div>
+        <p>Seu catálogo começa vazio. Cadastre seus produtos com fotos reais enviadas do computador ou celular. Adicione várias imagens para cada peça e ajuste a ordem para escolher a capa.</p>
+        <a class="backoffice-btn solid" href="{% url 'admin:store_product_add' %}">＋ Novo produto com fotos ↗</a>
+        <div class="bo-mini-stats"><span><b>{{ products_count }}</b> produtos cadastrados</span><span><b>{{ variants_count }}</b> variações</span></div>
+      </section>
+    </div>
+
+    <div class="backoffice-columns">
+      <section class="bo-panel">
+        <div class="bo-panel-title"><div><span class="backoffice-eyebrow">VENDAS</span><h2>Pedidos recentes</h2></div><a href="{% url 'admin:store_order_changelist' %}">Todos os pedidos ↗</a></div>
+        <div class="bo-table-wrap"><table class="bo-table"><thead><tr><th>Pedido</th><th>Situação</th><th>Total</th><th>Data</th></tr></thead><tbody>
+          {% for order in recent_orders %}<tr><td><a href="{% url 'admin:store_order_change' order.pk %}">#{{ order.pk }}</a></td><td>{{ order.get_status_display }}</td><td>R$ {{ order.total|floatformat:2 }}</td><td>{{ order.created_at|date:'d/m/Y' }}</td></tr>{% empty %}<tr><td colspan="4">Ainda não há pedidos registrados.</td></tr>{% endfor %}
+        </tbody></table></div>
+        <div class="bo-finance-footnote">* Pedidos confirmados não equivalem a saldo recebido. Sem conciliação de taxas, devoluções parciais e frete, não é possível calcular lucro líquido. Total nominal dos pedidos confirmados: <b>R$ {{ paid_order_amount|floatformat:2 }}</b>.</div>
+      </section>
+      <section class="bo-panel">
+        <div class="bo-panel-title"><div><span class="backoffice-eyebrow">REPOSIÇÃO</span><h2>Estoque em atenção</h2></div><a href="{% url 'admin:store_productvariant_changelist' %}">Gerenciar ↗</a></div>
+        <div class="bo-stock-list">{% for v in low_stock %}<div><span><b>{{ v.product.name }}</b><small>{{ v.color }} · {{ v.size }} · {{ v.sku }}</small></span><span class="bo-stock-pill {% if v.stock == 0 %}zero{% endif %}">{{ v.stock }} un.</span></div>{% empty %}<p>Nenhum SKU real ativo com 3 ou menos unidades.</p>{% endfor %}</div>
+      </section>
+    </div>
+    <div class="bo-warning"><strong>Atenção antes de vender:</strong> habilite o checkout somente após conferir pagamento real na InfinitePay, validade das reservas, políticas comerciais, frete, armazenamento de fotos e backups do banco.</div>
+  </div>
+</section>
+{% endblock %}

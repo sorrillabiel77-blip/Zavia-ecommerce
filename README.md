@@ -1,42 +1,37 @@
-# ZÁVIA — E-commerce v1.3 • InfinitePay (integração experimental)
+# ZÁVIA v1.6.1 — somente catálogo vazio e fotos reais
 
-Atualização do projeto Django publicado no Render. **Não altere o banco `zavia-db` e não mude a Gucci Cremas**. Esta versão preserva a migração `0002_mercadopago_checkout.py` por compatibilidade histórica: o nome da migração não determina o gateway ativo.
+Esta atualização modifica **somente** a limpeza dos produtos antigos e o cadastro de fotos. O restante da v1.5 (layout, painel, InfinitePay, frete, autenticação, banco e URLs) permanece igual.
 
-## O que foi trocado
-- Sai o adaptador Mercado Pago. Entra **InfinitePay Checkout Integrado** (`store/infinitepay.py`).
-- A cliente seleciona itens e endereço na ZÁVIA; o servidor gera um link de pagamento pelo endpoint `https://api.checkout.infinitepay.io/links`.
-- A InfinitePay retorna uma URL de checkout. Um webhook ou retorno passa identificadores; o servidor **sempre consulta o status via API autenticada `/payment_check`**, confere o pedido e total (centavos) antes de registrar pagamento.
-- Pix e cartão dependem de disponibilidade/configurações InfinitePay.
-- As cobranças ficam **desligadas** por padrão (`ZAVIA_CHECKOUT_ENABLED=0`).
+## O que acontece no primeiro deploy
 
-## Como atualizar mantendo seus dados
-1. Faça um backup do PostgreSQL da ZÁVIA antes de modificar a aplicação.
-2. Envie os arquivos e pastas deste ZIP para o repositório GitHub da ZÁVIA, substituindo os anteriores. **Não** exclua o banco existente.
-3. O Render fará o deploy e executará as migrações (`build.sh`). O arquivo `render.yaml` permanece conectado ao mesmo serviço e mesmo banco.
-4. Teste `/health/`, `/admin/`, carrinho e páginas de produtos; mantenha o checkout desligado.
-5. Abra o app InfinitePay > Vendas > Checkout > Configurações > Habilitar Checkout Integrado e gere uma API Key (documentação oficial: https://ajuda.infinitepay.io/pt-BR/articles/10766888-como-usar-o-checkout-integrado-da-infinitepay).
-6. No Render > `zavia-loja` > Environment, configure:
-   - `INFINITEPAY_TAG`: sua InfiniteTag, sem `$`.
-   - `INFINITEPAY_API_KEY`: segredo `inchk_...` criado no aplicativo InfinitePay. **Não publique**.
-   - `ZAVIA_SHIPPING_FLAT`: frete fixo para testes, por exemplo `12.00` (em reais, decimal com ponto).
-   - `ZAVIA_CHECKOUT_ENABLED`: mantenha `0` enquanto os testes não forem concluídos.
-7. A URL que o backend envia ao gateway é `https://zavia-loja.onrender.com/pagamento/webhook/`. O provedor notifica a cada link pela configuração `webhook` enviada ao criar o checkout.
-8. A API pode receber `order_nsu` no retorno (formato `ZAVIA-123`) e não aceita parâmetro de URL como prova de quitação.
+- A migração `0005_limpeza_unica_catalogo` remove **TODOS** os produtos atualmente cadastrados, inclusive fictícios e reais anteriores, junto com variações e respectivas fotos. A exclusão não deixa produtos antigos arquivados no Admin.
+- **Categorias, clientes e pedidos NÃO são apagados.** Se existirem pedidos antigos, a descrição, o SKU, a quantidade e o preço permanecem no histórico, mas a referência à variação antiga fica vazia (`NULL`).
+- O catálogo público e a administração de **Produtos** começarão com zero itens.
+- A limpeza roda **uma única vez**. Nenhum produto novo será apagado em futuras implantações.
+- Imagens estáticas de produtos fictícios foram removidas da vitrine. A logo oficial continua.
 
-## Antes de vendas reais
-**NÃO ativar o checkout apenas porque o deploy subiu.** Precisamos verificar:
-- habilitação real da API Key, estrutura de respostas e notificações da sua conta InfinitePay;
-- ciclo de checkout fim-a-fim com transação real de valor pequeno e estorno;
-- cálculo/contratação do frete para CEPs reais (nesta versão, frete FIXO sem cotação);
-- produtos reais com preços, disponibilidade e fotos adequados (`is_demo=True` bloqueia venda);
-- cancelamentos e estornos, especialmente reconciliação de reservas de estoque de pedidos abandonados (pendência da v1.2).
+**ATENÇÃO:** a remoção de todos os produtos antigos é permanente. Verifique antes que não haja pagamentos em aberto ligados a eles, e salve um backup antes de publicar. Se já implantou o ZIP v1.6 anterior, consulte o histórico de migrações antes de instalar esta revisão: a migração `0005` que já rodou não executa novamente.
 
-### Configuração do Render
-Não precisa criar novos serviços ou bancos. `render.yaml`, `requirements.txt`, `manage.py` e `build.sh` permanecem na raiz.
+## Como cadastrar seus produtos COM suas fotos
 
-### Limitações técnicas de segurança
-A documentação oficial do webhook InfinitePay não descreve assinatura para esta interface; o sistema trata **todo webhook como não confiável** e exige confirmação no endpoint autenticado `payment_check` com a API Key. Eventos de reembolso não alteram automaticamente o status do pedido; exigem conferência administrativa. **Sem testes reais, não há garantia de compatibilidade operacional em produção.**
+1. Acesse `https://zavia-loja.onrender.com/admin/`.
+2. Entre em **Produtos → Adicionar produto**.
+3. Preencha nome, categoria, preço, descrição e estoque nas variações.
+4. No fim da página, na seção **Fotos reais**, clique em **Selecionar arquivo** e escolha uma foto JPG/PNG/WebP do seu aparelho.
+5. Use **Adicionar outra Imagem de produto** para enviar a segunda, terceira e outras fotos.
+6. Coloque **Posição 0** na foto principal, 1 na seguinte, 2 na próxima etc.
+7. Salve. Todas as fotos aparecerão na galeria da página do produto.
 
-Links oficiais:
-- https://www.infinitepay.io/checkout-documentacao
-- https://ajuda.infinitepay.io/pt-BR/articles/10766888-como-usar-o-checkout-integrado-da-infinitepay
+Nesta versão de teste, as novas fotos ficam gravadas em formato WebP otimizado no PostgreSQL, não no disco temporário do Render. **Não guardamos nem reutilizamos fotos de produtos antigos.** Novas fotos precisam ser armazenadas para a loja poder mostrá-las.
+
+**Limitação do Render Free:** o banco de testes possui prazo de validade e não substitui um armazenamento duradouro para fotos. Não libere vendas reais sem validar pagamentos, backups e armazenamento permanente.
+
+## Atualização e checagem
+
+1. Preserve um backup/commit anterior. Confirme que deseja excluir permanentemente TODO o catálogo antigo.
+2. Extraia o ZIP e envie os arquivos à raiz do GitHub da ZÁVIA. Espere os testes em GitHub Actions passarem.
+3. Faça o deploy no Render, confirmando a execução da migração 0005.
+4. Confira **Produtos = 0** em `/admin/store/product/`, a vitrine vazia e `/health/` respondendo `ok`.
+5. Cadastre um produto real com duas fotos e confira a capa e as miniaturas na loja.
+
+Mantenha `ZAVIA_CHECKOUT_ENABLED=0` por enquanto; nenhuma alteração foi feita ao módulo de pagamento.

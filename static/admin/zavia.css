@@ -1,0 +1,19 @@
+:root {--primary:#6c4948; --secondary:#c49a8e; --accent:#8d625d; --primary-fg:#fff; --body-bg:#faf6f2; --body-fg:#2c2220; --header-bg:#302724; --header-color:#fff; --breadcrumbs-bg:#e9d9cc; --breadcrumbs-fg:#342c28; --link-fg:#78534d; --link-hover-color:#321f20; --button-bg:#583b38; --button-hover-bg:#3c2927; --hairline-color:#e6ddd6; --darkened-bg:#f5ece6;}
+body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;}
+#header{padding:16px 32px;background:#2c2321;box-shadow:0 3px 16px rgba(50,30,30,.08);gap:18px;}
+.zavia-admin-brand a{text-decoration:none!important;color:#fff!important;display:flex;flex-direction:column;}
+.zavia-brand-title{font-family:Georgia,serif;font-size:32px;letter-spacing:.14em;line-height:1;}
+.zavia-brand-caption{font-size:9px;letter-spacing:.26em;margin-top:7px;color:#e6bfb7;}
+.zavia-admin-toplink{display:inline-block;margin-right:18px;color:#ffe3d8!important;text-decoration:none;letter-spacing:.02em;font-size:12px;}
+#branding h1{margin:0;}
+#content{padding:26px 30px;}#content h1{font-family:Georgia,serif;font-size:31px;font-weight:400;color:#342321;}
+#content-main .module,.module,.inline-group,div.breadcrumbs{border-radius:11px;overflow:hidden;}
+.module h2,.module caption,.inline-group h2{background:#6e4c47;color:white;letter-spacing:.03em;padding:12px 16px;}
+#changelist-filter h2{background:#6e4c47}.object-tools a{background:#74534d;border-radius:7px;}
+button,.button,input[type=submit],.submit-row input{border-radius:7px;}
+#changelist .results table thead th{background:#f1e7df;color:#4f3c37;padding:12px;}
+#changelist .results table tbody tr:nth-child(even){background:#fff9f5}
+#changelist .results table tbody td,#changelist .results table tbody th{padding:10px 12px;}
+#content-related{border-radius:14px;overflow:hidden;}
+.dashboard #content-main .module{box-shadow:0 5px 15px rgba(30,20,20,.04);background:white;}
+@media(max-width:760px){#header{padding:12px 14px;}#content{padding:16px;}#content h1{font-size:25px}.zavia-brand-title{font-size:24px}.zavia-admin-toplink{margin:0 8px 0 0}}

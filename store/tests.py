@@ -1,3 +1,7 @@
+from io import BytesIO
+from PIL import Image
+from django.core.files.uploadedfile import SimpleUploadedFile
+from .photo_forms import ProductPhotoForm
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -8,7 +12,7 @@ class StoreTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         category=Category.objects.create(name='Leggings',slug='leggings')
-        cls.product=Product.objects.create(category=category,name='Legging Teste',slug='legging-teste',price=Decimal('149.90'),image_url='/static/img/legging-cacau.webp')
+        cls.product=Product.objects.create(category=category,name='Legging Teste',slug='legging-teste',price=Decimal('149.90'),image_url='')
         cls.variant=ProductVariant.objects.create(product=cls.product,sku='TEST-M',size='M',color='Mocha',stock=5)
 
     def test_home_and_detail(self):
@@ -120,13 +124,166 @@ class CheckoutInfinitePayTests(StoreTests):
         self.assertFalse(Order.objects.filter(user=self.buyer).exists())
 
     @override_settings(ZAVIA_CHECKOUT_ENABLED=True,INFINITEPAY_API_KEY='inchk_fake',INFINITEPAY_TAG='minha-loja',ZAVIA_SHIPPING_FLAT='12.00')
-    def test_failed_link_releases_stock(self):
+    def test_uncertain_link_retains_stock_for_manual_review(self):
         self.add_cart()
         with patch('store.views.create_payment_link',side_effect=InfinitePayError('simulada')):
             self.client.post(reverse('checkout'),self.valid_form())
         self.variant.refresh_from_db()
-        self.assertEqual(self.variant.stock,5)
-        self.assertEqual(Order.objects.get(user=self.buyer).status,'cancelled')
+        self.assertEqual(self.variant.stock,4)
+        order = Order.objects.get(user=self.buyer)
+        self.assertEqual(order.status,'pending_payment')
+        self.assertEqual(order.payment_status,'link_creation_uncertain')
 
     def test_cents(self):
         self.assertEqual(cents(Decimal('149.90')),14990)
+
+
+from datetime import timedelta
+from django.utils import timezone
+from .infinitepay import release_abandoned_after_manual_confirmation, create_payment_link
+
+class ReservationReviewTests(CheckoutInfinitePayTests):
+    @override_settings(ZAVIA_CHECKOUT_ENABLED=True,INFINITEPAY_API_KEY='inchk_fake',INFINITEPAY_TAG='minha-loja',ZAVIA_SHIPPING_FLAT='12.00')
+    def test_expiring_link_sends_valid_until(self):
+        self.add_cart()
+        with patch('store.infinitepay._call', return_value={'url':'https://checkout.infinitepay.com.br/fake'}) as mocked:
+            self.client.post(reverse('checkout'), self.valid_form())
+        order = Order.objects.get(user=self.buyer)
+        self.assertIsNotNone(order.payment_expires_at)
+        args = mocked.call_args.args
+        self.assertEqual(args[0],'/links')
+        self.assertEqual(args[1]['options']['valid_until'],order.payment_expires_at.isoformat())
+
+    @override_settings(ZAVIA_CHECKOUT_ENABLED=True,INFINITEPAY_API_KEY='inchk_fake',INFINITEPAY_TAG='minha-loja',ZAVIA_SHIPPING_FLAT='12.00')
+    def test_expired_does_not_release_automatically(self):
+        order=self.create_order()
+        Order.objects.filter(pk=order.pk).update(payment_expires_at=timezone.now()-timedelta(days=2))
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.stock,4)
+        order.refresh_from_db()
+        self.assertTrue(order.stock_reserved)
+
+    @override_settings(ZAVIA_CHECKOUT_ENABLED=True,INFINITEPAY_API_KEY='inchk_fake',INFINITEPAY_TAG='minha-loja',ZAVIA_SHIPPING_FLAT='12.00')
+    def test_manual_release_requires_age_confirmation_and_is_idempotent(self):
+        order=self.create_order()
+        admin=User.objects.create_user(username='verificador',password='SenhaForte123!',is_staff=True)
+        with self.assertRaises(ValueError):
+            release_abandoned_after_manual_confirmation(order.pk,staff_user=admin,provider_checked=True)
+        Order.objects.filter(pk=order.pk).update(payment_expires_at=timezone.now()-timedelta(days=2))
+        with self.assertRaises(ValueError):
+            release_abandoned_after_manual_confirmation(order.pk,staff_user=admin,provider_checked=False)
+        self.assertTrue(release_abandoned_after_manual_confirmation(order.pk,staff_user=admin,provider_checked=True))
+        self.assertFalse(release_abandoned_after_manual_confirmation(order.pk,staff_user=admin,provider_checked=True))
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.stock,5)
+        order.refresh_from_db()
+        self.assertEqual(order.status,'cancelled')
+
+    @override_settings(ZAVIA_CHECKOUT_ENABLED=True,INFINITEPAY_API_KEY='inchk_fake',INFINITEPAY_TAG='minha-loja',ZAVIA_SHIPPING_FLAT='12.00')
+    def test_no_manual_release_of_paid_order(self):
+        order=self.create_order()
+        Order.objects.filter(pk=order.pk).update(payment_expires_at=timezone.now()-timedelta(days=2))
+        with patch('store.infinitepay.payment_check',return_value={'success':True,'paid':True,'amount':16190}):
+            from .infinitepay import verify_and_apply
+            self.assertTrue(verify_and_apply(order.pk,'tx-123','slug-123'))
+        admin=User.objects.create_user(username='verificador',password='SenhaForte123!',is_staff=True)
+        self.assertFalse(release_abandoned_after_manual_confirmation(order.pk,staff_user=admin,provider_checked=True))
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.stock,4)
+
+
+class AdminProductManagementTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(name='Conjuntos', slug='conjuntos')
+        cls.admin_user = User.objects.create_superuser(username='gestor', email='gestor@example.com', password='SenhaBemSegura#2026')
+        cls.staff_user = User.objects.create_user(username='auxiliar', password='SenhaBemSegura#2026', is_staff=True)
+        cls.demo = Product.objects.create(category=cls.category, name='Peça fictícia', slug='peca-ficticia', price=Decimal('80.00'), is_demo=True, active=True)
+        cls.real = Product.objects.create(category=cls.category, name='Peça real', slug='peca-real', price=Decimal('90.00'), is_demo=False, active=True)
+        cls.variant = ProductVariant.objects.create(product=cls.demo, sku='FICT-P', size='P', color='Nude', stock=3)
+
+    def test_panel_archive_demos_keeps_real_product(self):
+        self.client.force_login(self.admin_user)
+        resp = self.client.post(reverse('dashboard'), {'action':'archive_demos'})
+        self.assertEqual(resp.status_code, 302)
+        self.demo.refresh_from_db()
+        self.real.refresh_from_db()
+        self.assertFalse(self.demo.active)
+        self.assertTrue(self.real.active)
+        self.assertFalse(self.demo.featured)
+        self.assertNotContains(self.client.get(reverse('home')), 'Peça fictícia')
+        self.assertContains(self.client.get(reverse('home')), 'Peça real')
+
+    def test_panel_blocked_without_permission(self):
+        self.client.force_login(self.staff_user)
+        response = self.client.post(reverse('dashboard'), {'action':'archive_demos'})
+        self.assertEqual(response.status_code, 403)
+        self.demo.refresh_from_db()
+        self.assertTrue(self.demo.active)
+
+    def test_delete_demo_without_orders(self):
+        self.client.force_login(self.admin_user)
+        url=reverse('admin:store_product_changelist')
+        response=self.client.post(url,{'action':'remove_demos_safely','_selected_action':[str(self.demo.pk)]})
+        self.assertContains(response,'EXCLUIR FICTICIOS')
+        response=self.client.post(url,{'action':'remove_demos_safely','_selected_action':[str(self.demo.pk)],'delete_demos_confirm':'EXCLUIR FICTICIOS','post':'yes'})
+        self.assertIn(response.status_code,(200,302))
+        self.assertFalse(Product.objects.filter(pk=self.demo.pk).exists())
+        self.assertTrue(Product.objects.filter(pk=self.real.pk).exists())
+
+    def test_delete_demo_with_historical_order_keeps_order_not_product(self):
+        from .models import OrderItem
+        from django.urls import reverse
+        order = Order.objects.create(user=self.admin_user, customer_name='Comprador anterior',
+                                     contact_email='cliente@example.com', address='SP')
+        item = OrderItem.objects.create(order=order, variant=self.variant,
+                                        description='Produto de teste', sku=self.variant.sku,
+                                        quantity=1, unit_price=Decimal('80.00'))
+        url=reverse('admin:store_product_changelist')
+        response=self.client.post(url,{'action':'remove_demos_safely',
+            '_selected_action':[str(self.demo.pk)],
+            'delete_demos_confirm':'EXCLUIR FICTICIOS','post':'yes'})
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Product.objects.filter(pk=self.demo.pk).exists())
+        item.refresh_from_db()
+        self.assertIsNone(item.variant_id)
+        self.assertEqual(item.sku, 'FICT-P')
+
+    def setUp(self):
+        self.category = self.__class__.category
+        self.product = Product.objects.create(category=self.category,name='Conjunto Real',slug='conjunto-real',price=Decimal('139.90'))
+
+    def uploaded_photo(self, color):
+        buff = BytesIO()
+        Image.new('RGB', (250, 350), color).save(buff, format='JPEG')
+        return SimpleUploadedFile('foto.jpg',buff.getvalue(),content_type='image/jpeg')
+
+    def test_multiple_real_photos_display_and_persist_in_db(self):
+        for i, color in enumerate(('pink', 'beige')):
+            form = ProductPhotoForm(data={'position':i,'alt':f'Foto {i+1}'}, files={'upload':self.uploaded_photo(color)})
+            self.assertTrue(form.is_valid(),form.errors)
+            photo = form.save(commit=False)
+            photo.product=self.product
+            photo.save()
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.gallery.count(), 2)
+        response = self.client.get(reverse('product_detail',args=[self.product.slug]))
+        self.assertContains(response, '/fotos/produto/', count=5)  # capa, 2 botões e 2 miniaturas
+        image = self.product.gallery.first()
+        self.assertTrue(image.has_upload)
+        result = self.client.get(reverse('product_image', args=[image.pk]))
+        self.assertEqual(result['Content-Type'], 'image/webp')
+        self.assertTrue(result.content.startswith(b'RIFF'))
+
+    def test_no_photo_upload_is_rejected_when_creating_gallery_row(self):
+        form = ProductPhotoForm(data={'position': 1,'alt':'sem foto'})
+        self.assertFalse(form.is_valid())
+
+    def test_empty_catalog_has_no_fake_products_or_fake_model_photos(self):
+        response = self.client.get(reverse('home'))
+        self.assertContains(response,'Conjunto Real')
+        self.product.delete()
+        response = self.client.get(reverse('home'))
+        self.assertContains(response,'Estamos preparando a coleção ZÁVIA')
+        self.assertNotContains(response,'Conjunto Real')
+        self.assertNotContains(response,'conjunto-mocha.webp')

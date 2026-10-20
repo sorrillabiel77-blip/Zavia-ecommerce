@@ -2,17 +2,19 @@ from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
-from django.db.models import F, Sum, Count
+from django.db.models import F, Sum, Count, Prefetch
+from django.views.decorators.http import require_http_methods
+from django.utils import timezone
 from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from .cart import add_to_cart, set_quantity, cart_lines
 from .forms import RegisterForm
-from .models import Category, Product, ProductVariant, Order
+from .models import Category, Product, ProductVariant, ProductImage, Order
 
 
 def home(request):
-    products = Product.objects.filter(active=True).select_related('category').prefetch_related('variants')
+    products = Product.objects.filter(active=True).select_related('category').prefetch_related('variants', Prefetch('gallery', queryset=ProductImage.objects.defer('photo_data')))
     categories = Category.objects.filter(active=True)
     category_slug = request.GET.get('categoria','').strip()
     query = request.GET.get('q','').strip()[:80]
@@ -24,7 +26,7 @@ def home(request):
 
 
 def detail(request, slug):
-    product = get_object_or_404(Product.objects.prefetch_related('variants','gallery'),slug=slug,active=True)
+    product = get_object_or_404(Product.objects.prefetch_related('variants', Prefetch('gallery', queryset=ProductImage.objects.defer('photo_data'))),slug=slug,active=True)
     variants = product.variants.filter(active=True)
     return render(request,'store/product.html',{'product':product,'variants':variants})
 
@@ -83,13 +85,52 @@ def checkout(request):
     return redirect('payment_checkout')
 
 @staff_member_required
+@require_http_methods(['GET', 'POST'])
 def dashboard(request):
-    products=Product.objects.count()
-    variants=ProductVariant.objects.count()
-    stock=ProductVariant.objects.aggregate(t=Sum('stock'))['t'] or 0
-    low_stock=ProductVariant.objects.select_related('product').filter(stock__lte=3).order_by('stock')[:12]
-    orders=Order.objects.count()
-    return render(request,'store/dashboard.html',{'products_count':products,'variants_count':variants,'stock_count':stock,'orders_count':orders,'low_stock':low_stock})
+    """Painel visual de operação: não confundir pedidos com faturamento liquidado."""
+    if request.method == 'POST':
+        if not request.user.has_perm('store.change_product'):
+            return HttpResponse(status=403)
+        action = request.POST.get('action', '')
+        if action == 'archive_demos':
+            updated = Product.objects.filter(is_demo=True, active=True).update(active=False, featured=False)
+            messages.success(request, f'{updated} produto(s) fictício(s) retirado(s) da vitrine. Nenhum pedido foi apagado.')
+        else:
+            messages.error(request, 'Ação administrativa não reconhecida.')
+        return redirect('dashboard')
+
+    paid_states = ('paid', 'preparing', 'shipped', 'delivered')
+    product_qs = Product.objects.all()
+    stats = {
+        'products_count': product_qs.count(),
+        'active_products_count': product_qs.filter(active=True, is_demo=False).count(),
+        'demo_count': product_qs.filter(is_demo=True, active=True).count(),
+        'archived_count': product_qs.filter(active=False).count(),
+        'variants_count': ProductVariant.objects.count(),
+        'stock_count': ProductVariant.objects.filter(active=True, product__active=True, product__is_demo=False).aggregate(t=Sum('stock'))['t'] or 0,
+        'orders_count': Order.objects.count(),
+        'pending_count': Order.objects.filter(status='pending_payment').count(),
+        'paid_count': Order.objects.filter(status__in=paid_states).count(),
+        'paid_order_amount': Order.objects.filter(status__in=paid_states).aggregate(t=Sum('total'))['t'] or 0,
+        'recent_orders': Order.objects.select_related('user').order_by('-created_at')[:8],
+        'low_stock': ProductVariant.objects.select_related('product').filter(active=True, product__active=True, product__is_demo=False, stock__lte=3).order_by('stock')[:10],
+    }
+    return render(request, 'store/dashboard.html', stats)
+
+
+@require_http_methods(['GET'])
+def product_image(request, image_id):
+    """Serve arquivo WebP realmente enviado. Nunca depende de disco temporário."""
+    photo = get_object_or_404(ProductImage.objects.select_related('product').only('photo_data', 'has_upload', 'product__active'), pk=image_id, has_upload=True)
+    # Admin pode conferir fotos enquanto cadastra produtos ainda não publicados.
+    if not photo.product.active and not request.user.is_staff:
+        raise Http404('Foto não publicada')
+    if not photo.photo_data:
+        raise Http404('Foto não encontrada')
+    response = HttpResponse(bytes(photo.photo_data), content_type='image/webp')
+    response['Cache-Control'] = 'public, max-age=300'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 
 def health(request):
@@ -97,6 +138,7 @@ def health(request):
 
 # ---------------- InfinitePay Checkout Integrado ----------------
 import uuid
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from django.conf import settings
 from django.db import transaction
@@ -106,7 +148,7 @@ from django.views.decorators.http import require_GET
 from .cart import CART_KEY
 from .checkout_forms import CheckoutForm
 from .models import OrderItem
-from .infinitepay import create_payment_link, InfinitePayError, release_reservation, verify_and_apply, order_reference
+from .infinitepay import create_payment_link, InfinitePayError, verify_and_apply, order_reference
 
 
 def checkout_ready():
@@ -144,6 +186,13 @@ def payment_checkout(request):
         # HTTP externo sempre fora da transação; reserva de estoque com row locks no PostgreSQL.
         order = None
         with transaction.atomic():
+            # Bloqueio por cliente + nonce para impedir dupla reserva em POST simultâneo.
+            from django.contrib.auth import get_user_model
+            get_user_model().objects.select_for_update().get(pk=request.user.pk)
+            existing = Order.objects.filter(checkout_nonce=nonce).first()
+            if existing:
+                messages.warning(request, 'Esse pedido já está registrado. Confira a situação antes de tentar novamente.')
+                return redirect('payment_return', order_id=existing.pk)
             ids = sorted(x['variant'].pk for x in lines)
             locked = {v.pk: v for v in ProductVariant.objects.select_for_update().select_related('product').filter(pk__in=ids)}
             current_lines = []
@@ -158,7 +207,8 @@ def payment_checkout(request):
                 customer_name=form.cleaned_data['full_name'], contact_email=form.cleaned_data['email'],
                 address=f"Telefone: {form.cleaned_data['phone']}\n{form.cleaned_address()}",
                 shipping_amount=shipping, total=real_subtotal + shipping,
-                payment_status='awaiting_payment', stock_reserved=True)
+                payment_status='awaiting_payment', stock_reserved=True,
+                payment_expires_at=timezone.now() + timedelta(minutes=30))
             for variant, qty, price in current_lines:
                 ProductVariant.objects.filter(pk=variant.pk).update(stock=F('stock')-qty)
                 OrderItem.objects.create(order=order, variant=variant,
@@ -169,9 +219,11 @@ def payment_checkout(request):
             base_url = request.build_absolute_uri('/').rstrip('/')
             pref_id, redirect_url = create_payment_link(order, base_url)
         except InfinitePayError:
-            release_reservation(order.pk)
-            messages.error(request, 'O pagamento não pôde ser iniciado. Nenhum valor foi cobrado. Tente novamente.')
-            return redirect('payment_checkout')
+            # Um timeout não comprova que a InfinitePay NÃO criou o link.
+            # Preserva-se a reserva para conferência manual: não duplicar venda de SKU.
+            Order.objects.filter(pk=order.pk, status='pending_payment').update(payment_status='link_creation_uncertain')
+            messages.error(request, 'Não foi possível confirmar a criação do pagamento. Pedido em revisão; nenhuma nova cobrança será iniciada automaticamente.')
+            return redirect('payment_return', order_id=order.pk)
         order.gateway_preference_id = pref_id
         order.gateway_checkout_url = redirect_url
         order.save(update_fields=['gateway_preference_id', 'gateway_checkout_url'])
