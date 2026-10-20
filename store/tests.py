@@ -284,7 +284,7 @@ class AdminProductManagementTests(TestCase):
         self.assertContains(response,'Conjunto Real')
         self.product.delete()
         response = self.client.get(reverse('home'))
-        self.assertContains(response,'Estamos preparando a coleção ZÁVIA')
+        self.assertContains(response,'A coleção ZÁVIA está sendo atualizada')
         self.assertNotContains(response,'Conjunto Real')
         self.assertNotContains(response,'conjunto-mocha.webp')
 
@@ -305,9 +305,9 @@ class FreteEFaviconTests(StoreTests):
         self.client.force_login(user)
         self.client.post(reverse('cart_add'), {'variant_id':self.variant.pk, 'quantity':1})
         response = self.client.get(reverse('checkout'))
-        self.assertContains(response, 'O frete fixo já está definido')
+        self.assertContains(response, 'Frete do pedido')
         self.assertContains(response, '15,00')
-        self.assertContains(response, 'temporariamente desativado')
+        self.assertContains(response, 'Pagamento temporariamente indisponível')
         self.assertNotContains(response, 'política de frete')
 
     @override_settings(ZAVIA_SHIPPING_FLAT='15,00', ZAVIA_CHECKOUT_ENABLED=False)
@@ -323,7 +323,7 @@ class FreteEFaviconTests(StoreTests):
     @override_settings(ZAVIA_SHIPPING_FLAT='', ZAVIA_CHECKOUT_ENABLED=False)
     def test_frete_ausente_informa_realidade(self):
         self.client.post(reverse('cart_add'), {'variant_id':self.variant.pk, 'quantity':1})
-        self.assertContains(self.client.get(reverse('cart')), 'Frete ainda não definido')
+        self.assertContains(self.client.get(reverse('cart')), 'A calcular')
 
     def test_logomarca_em_favicon_da_aba(self):
         response = self.client.get(reverse('home'))
@@ -385,3 +385,31 @@ class CarrinhoSincronizadoTests(StoreTests):
         self.assertContains(self.client.get(reverse('cart')), '299,80')
         self.assertContains(self.client.get(reverse('home')), '<span class="badge-count">2</span>', html=True)
         self.assertEqual(self.client.session.get('zavia_cart_v1'), {str(self.variant.pk): 2})
+
+
+# v1.7: textos comerciais e pagina informativa, sem modificar o checkout.
+from django.test import override_settings
+from django.urls import reverse
+
+class V17CommercialPresentationTests(StoreTests):
+    def test_home_uses_customer_copy(self):
+        response = self.client.get(reverse('home'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Pagamento pela InfinitePay')
+        self.assertContains(response, 'Como comprar')
+        self.assertNotContains(response, 'Checkout InfinitePay quando habilitado')
+
+    def test_how_to_buy_page_is_public(self):
+        response = self.client.get(reverse('como_comprar'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Conclua o pagamento no ambiente da InfinitePay')
+
+    @override_settings(ZAVIA_CHECKOUT_ENABLED=False)
+    def test_checkout_paused_has_no_testing_copy(self):
+        from django.contrib.auth import get_user_model
+        user=get_user_model().objects.create_user(username='cliente_pausa_v17', password='SenhaForteTest!232')
+        self.client.force_login(user)
+        self.client.post(reverse('cart_add'), {'variant_id': self.variant.pk, 'quantity': '1'})
+        response=self.client.get(reverse('checkout'))
+        self.assertContains(response, 'Pagamento temporariamente indisponível')
+        self.assertNotContains(response, 'testes de segurança')

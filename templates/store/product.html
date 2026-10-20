@@ -1,10 +1,15 @@
 {% extends 'store/base.html' %}
 {% block title %}{{ product.name }} | ZÁVIA{% endblock %}
-{% block content %}<section class="container product-page"><div class="breadcrumbs"><a href="{% url 'home' %}">Início</a> / <a href="{% url 'home' %}?categoria={{ product.category.slug }}">{{ product.category.name }}</a> / {{ product.name }}</div>
-<div class="product-layout"><div class="product-gallery"><div class="main-photo">{% if product.main_photo_url %}<img id="mainProductPhoto" src="{{ product.main_photo_url }}" alt="{{ product.name }}">{% else %}<div class="no-product-photo">FOTO EM PREPARAÇÃO</div>{% endif %}</div>{% for photo in product.gallery.all %}<button class="thumbnail" type="button" data-thumb="{{ photo.public_url }}"><img src="{{ photo.public_url }}" alt="{{ photo.alt|default:product.name }}"></button>{% endfor %}</div>
+{% block content %}<section class="container product-page">
+<div class="breadcrumbs"><a href="{% url 'home' %}">Início</a> / <a href="{% url 'home' %}?categoria={{ product.category.slug }}">{{ product.category.name }}</a> / {{ product.name }}</div>
+<div class="product-layout"><div class="product-gallery"><div class="main-photo">{% if product.main_photo_url %}<img id="mainProductPhoto" src="{{ product.main_photo_url }}" alt="{{ product.name }}">{% else %}<div class="no-product-photo">Imagem não disponível</div>{% endif %}</div>
+{% if product.gallery.all %}<div class="thumb-strip" aria-label="Fotos do produto">{% for photo in product.gallery.all %}<button class="thumbnail" type="button" data-thumb="{{ photo.public_url }}" aria-label="Ver outra foto de {{ product.name }}" aria-pressed="false"><img src="{{ photo.public_url }}" alt="{{ photo.alt|default:product.name }}" loading="lazy"></button>{% endfor %}</div>{% endif %}</div>
 <div class="detail-panel"><span class="eyebrow">ZÁVIA · {{ product.category.name|upper }}</span><h1>{{ product.name }}</h1><p class="detail-price">R$ {{ product.effective_price|floatformat:2 }}</p><p class="muted">{{ product.description }}</p>
 <form method="post" action="{% url 'cart_add' %}" class="buy-form" id="buyForm">{% csrf_token %}
 <label for="variantSelect">Cor e tamanho</label><select name="variant_id" id="variantSelect" required><option value="">Selecione sua opção</option>{% for item in variants %}<option value="{{ item.pk }}" {% if item.stock < 1 %}disabled{% endif %}>{{ item.color }} · {{ item.size }} {% if item.stock < 1 %}(esgotado){% else %}({{ item.stock }} disponíveis){% endif %}</option>{% endfor %}</select>
 <label for="quantity">Quantidade</label><input type="number" min="1" max="99" name="quantity" id="quantity" value="1" required>
 <button class="button button-dark wide" type="submit">ADICIONAR AO CARRINHO ↗</button></form>
-<a class="button button-outline wide" href="{% url 'cart' %}">VER MEU CARRINHO</a><div class="feature-list"><div>✧ Peças com design versátil</div><div>♡ Elegância em cada detalhe</div><div>ⓘ Frete e pagamento em integração</div></div></div></div></section>{% endblock %}
+<a class="button button-outline wide" href="{% url 'cart' %}">VER MEU CARRINHO</a>
+<div class="product-assurance" aria-label="Informações sobre compra"><div><strong>Pagamento seguro pela InfinitePay</strong><span>Conclua seu pagamento no ambiente da InfinitePay.</span></div><div><strong>Frete informado antes do pagamento</strong><span>Confira o valor fixo da entrega no carrinho.</span></div><div><strong>Consulte seus pedidos</strong><span>Acompanhe a situação das compras em Minha conta.</span></div></div>
+<a class="product-help-link" href="{% url 'como_comprar' %}">Dúvidas sobre a compra? Veja como funciona ↗</a>
+</div></div></section>{% endblock %}

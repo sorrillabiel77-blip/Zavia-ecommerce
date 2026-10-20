@@ -141,6 +141,10 @@ def product_image(request, image_id):
     return response
 
 
+def como_comprar(request):
+    return render(request, 'store/como_comprar.html')
+
+
 def health(request):
     return HttpResponse('ok',content_type='text/plain')
 

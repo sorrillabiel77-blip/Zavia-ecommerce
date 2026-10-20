@@ -1,21 +1,20 @@
-{% extends 'store/base.html' %}{% block title %}Finalizar compra | ZÁVIA{% endblock %}
-{% block content %}<section class="container inner-page narrow">
-<span class="eyebrow">ZÁVIA · CHECKOUT SEGURO</span><h1>Finalize sua <em>compra.</em></h1>
-{% if not configured %}<div class="information-box"><h3>Pagamento indisponível por enquanto</h3>
-<p>O pagamento pela InfinitePay permanece temporariamente desativado enquanto realizamos os testes de segurança. Nenhuma cobrança pode ser feita nesta etapa.</p>
-{% if shipping_configured %}<p>O frete fixo já está definido: <strong>{% if shipping == 0 %}Grátis{% else %}R$ {{ shipping|floatformat:2 }}{% endif %}</strong>. Total com frete: <strong>R$ {{ total_with_shipping|floatformat:2 }}</strong>.</p>
-{% else %}<p>O frete ainda não foi definido no ambiente da loja.</p>{% endif %}</div>
+{% extends 'store/base.html' %}
+{% block title %}Finalizar compra | ZÁVIA{% endblock %}
+{% block content %}<section class="container inner-page narrow checkout-main"><span class="eyebrow">ZÁVIA · FINALIZAÇÃO</span><h1>Finalize sua <em>compra.</em></h1>
+{% if not configured %}<div class="information-box"><h3>Pagamento temporariamente indisponível</h3><p>Não estamos recebendo novos pagamentos neste momento. Seu carrinho permanece disponível para você tentar novamente mais tarde.</p>
+{% if shipping_configured %}<p>Frete do pedido: <strong>{% if shipping == 0 %}Grátis{% else %}R$ {{ shipping|floatformat:2 }}{% endif %}</strong>. Total com frete: <strong>R$ {{ total_with_shipping|floatformat:2 }}</strong>.</p>{% endif %}</div>
 <a class="button button-dark" href="{% url 'cart' %}">VOLTAR AO CARRINHO ↗</a>
 {% else %}
-
-<div class="information-box"><h3>Resumo</h3>
-{% for line in lines %}<p>{{ line.quantity }} × {{ line.product.name }} · {{ line.variant.size }} / {{ line.variant.color }} — R$ {{ line.subtotal|floatformat:2 }}</p>{% endfor %}
-<p>Produtos: <strong>R$ {{ subtotal|floatformat:2 }}</strong></p>
-<p>Entrega (frete fixo informado pela loja, sem cotação por CEP): <strong>R$ {{ shipping|floatformat:2 }}</strong></p>
-<h3>Total: R$ {{ total|floatformat:2 }}</h3></div>
+<div class="checkout-provider"><span class="provider-mark">✓</span><div><strong>Checkout seguro da InfinitePay</strong><p>Você informará seus dados de pagamento no ambiente da InfinitePay após confirmar o pedido na ZÁVIA.</p></div></div>
+<div class="information-box checkout-summary"><h3>Revise seu pedido</h3>
+{% for line in lines %}<div class="checkout-summary-row"><span>{{ line.quantity }} × {{ line.product.name }} · {{ line.variant.size }} / {{ line.variant.color }}</span><strong>R$ {{ line.subtotal|floatformat:2 }}</strong></div>{% endfor %}
+<div class="checkout-summary-row"><span>Produtos</span><strong>R$ {{ subtotal|floatformat:2 }}</strong></div>
+<div class="checkout-summary-row"><span>Frete fixo</span><strong>{% if shipping == 0 %}Grátis{% else %}R$ {{ shipping|floatformat:2 }}{% endif %}</strong></div>
+<div class="checkout-summary-row checkout-summary-total"><span>Total a pagar</span><strong>R$ {{ total|floatformat:2 }}</strong></div></div>
 <h2>Dados para entrega</h2>
-<form method="post" class="zavia-checkout-form">{% csrf_token %}<input type="hidden" name="nonce" value="{{ nonce }}">
+<form method="post" class="zavia-checkout-form" id="zaviaCheckoutForm">{% csrf_token %}<input type="hidden" name="nonce" value="{{ nonce }}">
+{% if form.non_field_errors %}<div class="error-text">{{ form.non_field_errors }}</div>{% endif %}
 {% for field in form %}<p><label for="{{ field.id_for_label }}">{{ field.label }}</label><br>{{ field }}{% if field.errors %}<small class="error-text">{{ field.errors }}</small>{% endif %}</p>{% endfor %}
-<button type="submit" class="button button-dark">PAGAR COM INFINITEPAY ↗</button></form>
-<p class="muted small">Você será redirecionada ao checkout da InfinitePay. O pedido só será considerado pago após confirmação da transação pela API.</p>
+<button type="submit" class="button button-dark wide" id="startPaymentButton">CONTINUAR PARA INFINITEPAY ↗</button></form>
+<p class="muted small checkout-disclosure">Ao continuar, a ZÁVIA cria seu pedido e direciona você ao checkout da InfinitePay. A confirmação do pedido depende da confirmação do pagamento pela InfinitePay. Evite fechar a página durante o redirecionamento.</p>
 {% endif %}</section>{% endblock %}

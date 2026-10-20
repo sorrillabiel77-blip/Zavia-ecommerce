@@ -13,5 +13,6 @@ urlpatterns = [
     path('pagamento/retorno/<int:order_id>/',views.payment_return,name='payment_return'),
     path('pagamento/webhook/',views.payment_webhook,name='payment_webhook'),
     path('painel/',views.dashboard,name='dashboard'),
+    path('como-comprar/',views.como_comprar,name='como_comprar'),
     path('health/',views.health,name='health'),
 ]

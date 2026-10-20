@@ -1,0 +1,13 @@
+{% extends 'store/base.html' %}
+{% block title %}Como comprar | ZÁVIA{% endblock %}
+{% block content %}
+<section class="container inner-page narrow buying-guide"><span class="eyebrow">SUA EXPERIÊNCIA ZÁVIA</span><h1>Comprar é <em>simples.</em></h1>
+<p class="muted">Escolha suas peças, confira o total e finalize o pagamento pelo checkout da InfinitePay.</p>
+<div class="buy-guide-step"><span>01</span><div><h2>Encontre sua peça</h2><p>Na página do produto, veja as fotos reais, escolha o tamanho e a cor disponíveis e adicione ao carrinho.</p></div></div>
+<div class="buy-guide-step"><span>02</span><div><h2>Confira o total</h2><p>O carrinho mostra o preço das peças, o valor fixo de entrega e o total antes do pagamento. Na próxima etapa você informa os dados para entrega.</p></div></div>
+<div class="buy-guide-step"><span>03</span><div><h2>Finalize pela InfinitePay</h2><p>Ao continuar, você é redirecionada ao checkout da InfinitePay, onde aparecem as opções de pagamento disponíveis, incluindo Pix e cartão conforme configuração da conta.</p></div></div>
+<div class="buy-guide-step"><span>04</span><div><h2>Acompanhe seu pedido</h2><p>Depois do pagamento, acesse Minha conta para verificar a situação. O pedido só aparece como pago após a confirmação da transação.</p></div></div>
+<div class="information-box"><strong>Sobre a segurança do pagamento</strong><p>Os dados de Pix ou cartão são informados no checkout da InfinitePay. A ZÁVIA não solicita o número completo do cartão por mensagens.</p></div>
+<a href="{% url 'home' %}#colecao" class="button button-dark">EXPLORAR A COLEÇÃO ↗</a>
+</section>
+{% endblock %}

@@ -1,40 +1,47 @@
-# ZÁVIA v1.6.3 — Correção pontual do carrinho após exclusão de produtos
+# ZÁVIA v1.7 — Apresentação comercial + Checkout InfinitePay
 
-Esta versão é derivada **diretamente da v1.6.2** e conserva frete fixo, favicon oficial,
-catálogo destinado aos produtos reais, galeria de fotos, painel administrativo e InfinitePay.
+**Base:** ZÁVIA v1.6.3 (Carrinho Corrigido). Esta entrega melhora a comunicação e a apresentação da loja **sem alterar a lógica de cobrança ou o banco de dados**.
 
-## Erro corrigido
-Ao excluir ou desativar produtos no Admin, os identificadores permaneciam na sessão
-`zavia_cart_v1`. O badge do cabeçalho contabilizava o conteúdo antigo da sessão,
-independentemente da existência do produto no banco de dados. Por isso aparecia
-"1" apesar de o catálogo estar vazio.
+## Melhorias para a cliente
 
-Agora tanto o contador quanto a página do carrinho consultam os SKUs ativos no
-banco. Produtos/variações inexistentes ou desativados são removidos **automaticamente
-da sessão** na próxima requisição. Itens ainda válidos permanecem, assim como seus
-tamanhos, cores e quantidades. Produtos apenas esgotados permanecem visíveis, com aviso.
-Entradas inválidas na sessão também são descartadas.
+- Removeu da vitrine, do carrinho, da página de produto e do checkout textos sobre "testes", "integração em andamento", "quando habilitado" e termos internos.
+- Incluiu mensagens honestas de pagamento via **checkout da InfinitePay**, sem usar selos de certificação não fornecidos pelo provedor ou prometer segurança absoluta.
+- Modernizou a barra superior e os ícones de conta e carrinho.
+- Acrescentou etapas explicativas de compra na página inicial.
+- Reorganizou o resumo final do checkout com valor das peças, frete e total.
+- Melhorou a galeria de fotos, navegação mobile e acessibilidade.
+- Criou a página pública **`/como-comprar/`**, explicando tamanhos, frete fixo, checkout InfinitePay e acompanhamento de pedidos.
+- Preparou metadados Open Graph com a logo oficial para prévias de compartilhamento (a exibição depende de cada aplicativo e seu cache).
+- Quando o checkout estiver desligado, mostra aviso neutro de indisponibilidade, sem linguagem de testes.
 
-## Arquivos de código alterados
-- `store/cart.py`: validação/sincronização da sessão com catálogo; contador consistente;
-  normalização de valores e invalidação do cache de requisição ao alterar itens.
-- `store/context_processors.py`: contador usa a mesma função de validação do carrinho.
-- `store/tests.py`: testes de exclusão, arquivamento/desativação, alterações de variação,
-  sessão inválida e preservação de produtos válidos.
+## O que ficou idêntico à v1.6.3
 
-Não foram feitas modificações nas migrações, no banco de dados, na identidade visual,
-no frete, nos métodos de pagamento ou no painel administrativo.
+- Produtos reais, várias fotografias por produto e estoque por variação.
+- Painel `/painel/` e Django Admin `/admin/`.
+- Limpeza de produtos fictícios e sincronização do contador do carrinho.
+- Frete fixo `ZAVIA_SHIPPING_FLAT`.
+- InfinitePay: funções API, geração de links, webhook, verificação, controle de reserva.
+- Variáveis do Render, migrações e PostgreSQL existentes.
+- Logo oficial, favicon, cores champagne/nude/rosé.
 
-## Atualização sem recriar a loja
-1. Guarde o commit estável do GitHub; faça backup do banco se houver dados comerciais.
-2. Extraia o ZIP e envie **seu conteúdo** ao mesmo repositório da ZÁVIA,
-   mantendo os arquivos na raiz; evite excluir o repositório.
-3. Confira GitHub Actions: `python manage.py test store`.
-4. Se passar, no Render `zavia-loja` publique `Deploy latest commit`.
-5. Abra a loja/carrinho: sem produtos cadastrados, o badge deve exibir **0**;
-   ao cadastrar e adicionar um produto real ao carrinho, a contagem volta a funcionar.
+**Esta versão não muda automaticamente** `ZAVIA_CHECKOUT_ENABLED`. Caso esteja `1`, clientes conseguem iniciar cobranças reais. Caso esteja `0`, verá mensagem temporária de indisponibilidade. Nunca compartilhe chaves API.
 
-**Mantenha `ZAVIA_CHECKOUT_ENABLED=0`.** Não é uma validação do pagamento InfinitePay.
+## Instalar mantendo os dados
 
-Validação local: compilação de código, testes isolados da sincronização com modelos
-simulados e conferência dos arquivos ZIP. A execução integral de Django cabe ao CI.
+1. Salve o commit de retorno da v1.6.3. Se existem pagamentos ou clientes, obtenha um backup restaurável do banco antes da mudança.
+2. Extraia **o conteúdo** do ZIP e envie para a raiz do repositório GitHub conectado ao serviço `zavia-loja`. Nunca envie segredos de `.env` ao GitHub.
+3. Confira `GitHub → Actions → ZAVIA - testes Django`: o job executa `manage.py check` e `manage.py test store`.
+4. Com o CI aprovado, Render → `zavia-loja` → Manual Deploy → Deploy latest commit.
+5. Confira páginas `/`, `/como-comprar/`, `/carrinho/`, `/finalizar/`, `/admin/` e `/painel/`.
+6. Confirme o valor dos produtos e do frete, o redirecionamento InfinitePay e os registros de pedidos.
+
+**Nenhuma migração nova:** o banco e os produtos já cadastrados não devem ser apagados por esta atualização (supondo que as migrações antigas já foram executadas).
+
+## Validação e pendências
+
+- Verificações locais: sintaxe Python e JavaScript, nomes de URLs, fechamento dos blocos de template, estrutura do ZIP e conferência por hash dos módulos de pagamento/estoque.
+- Sem teste Django completo local (instalação de dependências indisponível); executar o CI antes do deploy.
+- **Importante:** o redirecionamento InfinitePay ter funcionado **não comprova** que o pagamento, webhook, reembolso e reconciliação do estoque estão homologados. Acompanhe a primeira compra autorizada em ambos os painéis antes de declarar tudo pronto.
+- Antes de receber vendas de clientes de verdade: publicar os dados comerciais aplicáveis e canal de contato, política de entrega e trocas/devoluções, política de privacidade e confirmar backups/infra de banco persistentes. Não foram inventados dados legais ou canais de atendimento.
+
+Leia também **`CHECKLIST_LANCAMENTO.md`** para a próxima fase.

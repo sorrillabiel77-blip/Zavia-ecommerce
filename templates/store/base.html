@@ -1,13 +1,22 @@
 {% load static %}<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#F8F2EA">
+  <meta name="description" content="ZÁVIA — moda fitness feminina para acompanhar seus movimentos. Explore peças, escolha tamanhos e pague pelo checkout InfinitePay.">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="ZÁVIA">
+  <meta property="og:title" content="ZÁVIA | Moda Fitness Feminina">
+  <meta property="og:description" content="Vista sua essência. Viva seu movimento. Conheça a coleção ZÁVIA.">
+  <meta property="og:url" content="{{ request.build_absolute_uri }}">
+  <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'img/zavia-logo.jpg' %}">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
   <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}">
   <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon-16.png' %}">
   <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/apple-touch-icon.png' %}">
-  <meta name="description" content="ZÁVIA — moda fitness feminina, feita para mover com confiança.">
   <title>{% block title %}ZÁVIA | Moda Fitness Feminina{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,28 +25,39 @@
   <script src="{% static 'js/store.js' %}" defer></script>
 </head>
 <body>
-  <div class="top-strip">ZÁVIA <span>— moda feminina para seu melhor movimento</span></div>
+  <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+  <div class="top-strip">ZÁVIA <span>— moda fitness para o seu movimento</span></div>
   <header class="site-header"><div class="container header-inner">
-    <button class="menu-toggle" type="button" aria-label="Abrir categorias" data-menu-toggle>☰</button>
-    <a class="logo" href="{% url 'home' %}" aria-label="ZÁVIA início"><img src="{% static 'img/zavia-wordmark.webp' %}" alt="ZÁVIA" width="170" height="65"></a>
+    <button class="menu-toggle" type="button" aria-label="Abrir menu de categorias" aria-expanded="false" aria-controls="nav-links" data-menu-toggle>☰</button>
+    <a class="logo" href="{% url 'home' %}" aria-label="ZÁVIA, página inicial"><img src="{% static 'img/zavia-wordmark.webp' %}" alt="ZÁVIA" width="170" height="65"></a>
     <nav class="nav-links" id="nav-links" aria-label="Categorias">
-      <a href="{% url 'home' %}">Novidades</a>
-      <a href="{% url 'home' %}?categoria=leggings">Leggings</a>
-      <a href="{% url 'home' %}?categoria=tops">Tops</a>
-      <a href="{% url 'home' %}?categoria=conjuntos">Conjuntos</a>
-      <a href="{% url 'home' %}?categoria=shorts">Shorts</a>
+      <a href="{% url 'home' %}#colecao">Novidades</a>
+      <a href="{% url 'home' %}?categoria=leggings#colecao">Leggings</a>
+      <a href="{% url 'home' %}?categoria=tops#colecao">Tops</a>
+      <a href="{% url 'home' %}?categoria=conjuntos#colecao">Conjuntos</a>
+      <a href="{% url 'home' %}?categoria=shorts#colecao">Shorts</a>
     </nav>
-    <div class="header-actions"><a href="{% url 'profile' %}" aria-label="Minha conta" title="Minha conta">♙ <span class="desktop-label">Minha conta</span></a>
-      <a class="cart-header" href="{% url 'cart' %}" aria-label="Carrinho">♡ <span class="desktop-label">Carrinho</span><span class="badge-count">{{ cart_count }}</span></a>
+    <div class="header-actions">
+      <a class="header-action" href="{% url 'profile' %}" aria-label="Minha conta" title="Minha conta">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="3.4"/><path d="M5.2 20c.1-4 2.8-6.2 6.8-6.2s6.7 2.2 6.8 6.2"/></svg>
+        <span class="desktop-label">Minha conta</span></a>
+      <a class="cart-header header-action" href="{% url 'cart' %}" aria-label="Meu carrinho com {{ cart_count }} item(ns)" title="Meu carrinho">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4.5 8h15l-1 12h-13zM9 9V6a3 3 0 016 0v3"/></svg>
+        <span class="desktop-label">Carrinho</span><span class="badge-count">{{ cart_count }}</span></a>
     </div>
   </div></header>
   {% if messages %}<div class="container flash-area" role="status">{% for message in messages %}<div class="flash {% if message.tags %}{{ message.tags }}{% endif %}">{{ message }}</div>{% endfor %}</div>{% endif %}
-  <main>{% block content %}{% endblock %}</main>
+  <main id="conteudo">{% block content %}{% endblock %}</main>
+  <section class="store-confidence" aria-label="Como comprar na ZÁVIA"><div class="container store-confidence-grid">
+    <div><strong>✦ Escolha suas peças</strong><span>Veja tamanhos, cores e disponibilidade</span></div>
+    <div><strong>▣ Confira o total</strong><span>Produtos e frete informados antes de pagar</span></div>
+    <div><strong>♧ Pagamento seguro via InfinitePay</strong><span>Pagamento realizado no checkout da InfinitePay</span></div>
+  </div></section>
   <footer class="footer"><div class="container footer-grid">
-    <div><a href="{% url 'home' %}" class="footer-brand">ZÁVIA</a><p>Vista seu movimento. Sua força é a nossa inspiração.</p><small>Nossa coleção está sendo preparada com cuidado. Em breve, novidades por aqui.</small></div>
-    <div><h4>Compre com estilo</h4><a href="{% url 'home' %}?categoria=leggings">Leggings</a><a href="{% url 'home' %}?categoria=tops">Tops</a><a href="{% url 'home' %}?categoria=conjuntos">Conjuntos</a></div>
-    <div><h4>Sua experiência</h4><a href="{% url 'cart' %}">Meu carrinho</a><a href="{% url 'profile' %}">Minha conta</a><a href="{% url 'checkout' %}">Finalizar compra</a></div>
-    <div><h4>Entre no universo ZÁVIA</h4><p>Moda fitness feminina com personalidade e leveza.</p><span class="footer-tag">Checkout InfinitePay quando habilitado</span></div>
-  </div><div class="container footer-bottom">© 2026 ZÁVIA · Todos os direitos reservados</div></footer>
+    <div><a href="{% url 'home' %}" class="footer-brand">ZÁVIA</a><p>Vista seu movimento. Sua força é a nossa inspiração.</p><small>Moda fitness feminina com identidade e personalidade.</small></div>
+    <div><h4>Explore a ZÁVIA</h4><a href="{% url 'home' %}#colecao">Nossa coleção</a><a href="{% url 'home' %}?categoria=leggings#colecao">Leggings</a><a href="{% url 'home' %}?categoria=conjuntos#colecao">Conjuntos</a></div>
+    <div><h4>Minha compra</h4><a href="{% url 'cart' %}">Carrinho</a><a href="{% url 'profile' %}">Meus pedidos</a><a href="{% url 'como_comprar' %}">Como comprar</a></div>
+    <div><h4>Pagamento pela InfinitePay</h4><p>Você escolhe suas peças na ZÁVIA e conclui o pagamento no checkout da InfinitePay.</p><span class="footer-tag">Pix e cartão conforme opções disponíveis na InfinitePay</span></div>
+  </div><div class="container footer-bottom"><span>© {% now "Y" %} ZÁVIA · Todos os direitos reservados</span><span>Moda fitness feminina · São Paulo</span></div></footer>
 </body>
 </html>
