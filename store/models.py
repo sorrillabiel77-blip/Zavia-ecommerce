@@ -115,3 +115,39 @@ class OrderItem(models.Model):
         verbose_name = 'Item do pedido'
         verbose_name_plural = 'Itens do pedido'
     def __str__(self): return self.description
+
+
+class StoreInformation(models.Model):
+    """Dados públicos editáveis da ZÁVIA, sem credenciais nem dados financeiros."""
+    brand_name = models.CharField('Marca exibida', max_length=100, default='ZÁVIA')
+    legal_name = models.CharField('Razão social / nome empresarial', max_length=180, blank=True)
+    tax_id = models.CharField('CNPJ (se aplicável)', max_length=25, blank=True)
+    business_address = models.TextField('Endereço comercial para divulgação', blank=True)
+    contact_email = models.EmailField('E-mail de atendimento', blank=True)
+    privacy_email = models.EmailField('E-mail para solicitações LGPD (opcional)', blank=True)
+    contact_phone = models.CharField('WhatsApp de atendimento (somente números, com DDI)', max_length=24, blank=True)
+    service_hours = models.CharField('Horário de atendimento', max_length=180, blank=True)
+    instagram_url = models.URLField('Instagram oficial', blank=True)
+    dispatch_region = models.CharField('Origem dos envios', max_length=160, default='São Paulo — Zona Leste')
+    shipping_preparation = models.CharField('Prazo de preparação para envio', max_length=190, blank=True)
+    delivery_estimate = models.CharField('Informações sobre prazos de entrega', max_length=300, blank=True)
+    shipping_details = models.TextField('Informações adicionais de entrega (opcional)', blank=True)
+    exchange_details = models.TextField('Procedimento de trocas/devoluções (opcional)', blank=True)
+    last_updated = models.DateTimeField('Última atualização', auto_now=True)
+
+    class Meta:
+        verbose_name = 'Informações comerciais e atendimento'
+        verbose_name_plural = 'Informações comerciais e atendimento'
+
+    def __str__(self):
+        return f'Informações comerciais — {self.brand_name}'
+
+    @property
+    def whatsapp_url(self):
+        import re
+        digits = re.sub(r'[^0-9]', '', self.contact_phone or '')
+        return f'https://wa.me/{digits}' if 10 <= len(digits) <= 15 else ''
+
+    @property
+    def privacy_contact(self):
+        return self.privacy_email or self.contact_email

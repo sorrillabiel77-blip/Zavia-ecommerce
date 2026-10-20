@@ -7,7 +7,7 @@ from django.utils.html import format_html
 from .photo_forms import ProductPhotoForm
 
 from .infinitepay import release_abandoned_after_manual_confirmation
-from .models import Category, Product, ProductVariant, ProductImage, Order, OrderItem
+from .models import Category, Product, ProductVariant, ProductImage, Order, OrderItem, StoreInformation
 
 
 @admin.register(Category)
@@ -162,3 +162,26 @@ class ProductVariantAdmin(admin.ModelAdmin):
     list_editable = ('stock', 'active')
     list_filter = ('size', 'color', 'active')
     search_fields = ('sku', 'product__name')
+
+
+@admin.register(StoreInformation)
+class StoreInformationAdmin(admin.ModelAdmin):
+    """Uma configuração pública por loja. Nenhum token ou segredo aqui."""
+    fieldsets = (
+        ('Marca e identificação comercial', {'fields':('brand_name','legal_name','tax_id','business_address'),
+            'description':'Preencha os dados reais da empresa antes de divulgar a loja. Não invente CNPJ ou endereço.'}),
+        ('Atendimento', {'fields':('contact_email','contact_phone','service_hours','instagram_url','privacy_email'),
+            'description':'WhatsApp no padrão internacional: 55 + DDD + número, sem espaços ou símbolos. Não coloque chaves de API.'}),
+        ('Entregas e política de trocas', {'fields':('dispatch_region','shipping_preparation','delivery_estimate','shipping_details','exchange_details'),
+            'description':'Informe prazos e procedimentos reais. Estes textos aparecem ao cliente na área de informações.'}),
+    )
+    def has_add_permission(self, request):
+        return super().has_add_permission(request) and not StoreInformation.objects.exists()
+    def has_delete_permission(self, request, obj=None):
+        return False
+    def changelist_view(self, request, extra_context=None):
+        existing=StoreInformation.objects.order_by('pk').first()
+        if existing and self.has_view_or_change_permission(request, existing):
+            from django.shortcuts import redirect
+            return redirect('admin:store_storeinformation_change', existing.pk)
+        return super().changelist_view(request, extra_context)

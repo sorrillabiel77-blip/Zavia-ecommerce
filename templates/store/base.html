@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#F8F2EA">
+  <meta name="theme-color" content="#F4E6DD">
   <meta name="description" content="ZÁVIA — moda fitness feminina para acompanhar seus movimentos. Explore peças, escolha tamanhos e pague pelo checkout InfinitePay.">
   <meta property="og:locale" content="pt_BR">
   <meta property="og:type" content="website">
@@ -49,15 +49,18 @@
   {% if messages %}<div class="container flash-area" role="status">{% for message in messages %}<div class="flash {% if message.tags %}{{ message.tags }}{% endif %}">{{ message }}</div>{% endfor %}</div>{% endif %}
   <main id="conteudo">{% block content %}{% endblock %}</main>
   <section class="store-confidence" aria-label="Como comprar na ZÁVIA"><div class="container store-confidence-grid">
-    <div><strong>✦ Escolha suas peças</strong><span>Veja tamanhos, cores e disponibilidade</span></div>
-    <div><strong>▣ Confira o total</strong><span>Produtos e frete informados antes de pagar</span></div>
-    <div><strong>♧ Pagamento seguro via InfinitePay</strong><span>Pagamento realizado no checkout da InfinitePay</span></div>
+    <div><strong>✦ Escolha com tranquilidade</strong><span>Consulte tamanhos, cores e disponibilidade antes de finalizar</span></div>
+    <div><strong>▣ Resumo transparente</strong><span>Visualize produtos, frete e total do pedido com clareza</span></div>
+    <div><strong>♧ Compra segura com InfinitePay</strong><span>Finalize em ambiente protegido, com opções de pagamento via Pix ou cartão</span></div>
   </div></section>
-  <footer class="footer"><div class="container footer-grid">
-    <div><a href="{% url 'home' %}" class="footer-brand">ZÁVIA</a><p>Vista seu movimento. Sua força é a nossa inspiração.</p><small>Moda fitness feminina com identidade e personalidade.</small></div>
-    <div><h4>Explore a ZÁVIA</h4><a href="{% url 'home' %}#colecao">Nossa coleção</a><a href="{% url 'home' %}?categoria=leggings#colecao">Leggings</a><a href="{% url 'home' %}?categoria=conjuntos#colecao">Conjuntos</a></div>
-    <div><h4>Minha compra</h4><a href="{% url 'cart' %}">Carrinho</a><a href="{% url 'profile' %}">Meus pedidos</a><a href="{% url 'como_comprar' %}">Como comprar</a></div>
-    <div><h4>Pagamento pela InfinitePay</h4><p>Você escolhe suas peças na ZÁVIA e conclui o pagamento no checkout da InfinitePay.</p><span class="footer-tag">Pix e cartão conforme opções disponíveis na InfinitePay</span></div>
-  </div><div class="container footer-bottom"><span>© {% now "Y" %} ZÁVIA · Todos os direitos reservados</span><span>Moda fitness feminina · São Paulo</span></div></footer>
+  <footer class="footer"><div class="container footer-grid footer-grid-refined">
+    <div class="footer-about"><a href="{% url 'home' %}" class="footer-brand">ZÁVIA</a><p>Vista sua essência. Viva seu movimento.</p><small>Moda fitness feminina, com escolhas pensadas para acompanhar seu estilo.</small>{% if store_info and store_info.legal_name %}<span class="footer-company">{{ store_info.legal_name }}{% if store_info.tax_id %} · CNPJ {{ store_info.tax_id }}{% endif %}</span>{% endif %}</div>
+    <div><h4>Explore</h4><a href="{% url 'home' %}#colecao">Coleção</a><a href="{% url 'home' %}?categoria=leggings#colecao">Leggings</a><a href="{% url 'home' %}?categoria=conjuntos#colecao">Conjuntos</a><a href="{% url 'como_comprar' %}">Como comprar</a></div>
+    <div><h4>Informações</h4><a href="{% url 'politica_entrega' %}">Entregas e frete</a><a href="{% url 'trocas_devolucoes' %}">Trocas e devoluções</a><a href="{% url 'politica_privacidade' %}">Privacidade</a><a href="{% url 'atendimento' %}">Atendimento e contato</a></div>
+    <div><h4>Compra pela InfinitePay</h4><p>Após confirmar o pedido, você conclui o pagamento no checkout da InfinitePay. O valor e o frete são exibidos antes de pagar.</p><span class="footer-tag">Opções de Pix e cartão disponíveis conforme a InfinitePay.</span>
+      {% if store_info and store_info.contact_email %}<a class="footer-support-link" href="mailto:{{ store_info.contact_email }}">{{ store_info.contact_email }}</a>{% endif %}
+      {% if store_info and store_info.whatsapp_url %}<a class="footer-support-link" href="{{ store_info.whatsapp_url }}" target="_blank" rel="noopener noreferrer">Atendimento via WhatsApp ↗</a>{% endif %}
+    </div>
+  </div><div class="container footer-bottom"><span>© {% now "Y" %} ZÁVIA · Todos os direitos reservados</span><span>{% if store_info and store_info.dispatch_region %}{{ store_info.dispatch_region }}{% else %}São Paulo, SP{% endif %}</span></div></footer>
 </body>
 </html>

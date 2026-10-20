@@ -1,47 +1,67 @@
-# ZÁVIA v1.7 — Apresentação comercial + Checkout InfinitePay
+# ZÁVIA v1.8 — Pacote consolidado para atualizar uma única vez
 
-**Base:** ZÁVIA v1.6.3 (Carrinho Corrigido). Esta entrega melhora a comunicação e a apresentação da loja **sem alterar a lógica de cobrança ou o banco de dados**.
+**Base funcional:** ZÁVIA v1.7.1, com identidade premium rosé/champagne. Esta atualização adiciona as informações institucionais que faltavam, com gerenciamento dos dados da loja no próprio Django Admin.
 
-## Melhorias para a cliente
+## Novidades públicas
 
-- Removeu da vitrine, do carrinho, da página de produto e do checkout textos sobre "testes", "integração em andamento", "quando habilitado" e termos internos.
-- Incluiu mensagens honestas de pagamento via **checkout da InfinitePay**, sem usar selos de certificação não fornecidos pelo provedor ou prometer segurança absoluta.
-- Modernizou a barra superior e os ícones de conta e carrinho.
-- Acrescentou etapas explicativas de compra na página inicial.
-- Reorganizou o resumo final do checkout com valor das peças, frete e total.
-- Melhorou a galeria de fotos, navegação mobile e acessibilidade.
-- Criou a página pública **`/como-comprar/`**, explicando tamanhos, frete fixo, checkout InfinitePay e acompanhamento de pedidos.
-- Preparou metadados Open Graph com a logo oficial para prévias de compartilhamento (a exibição depende de cada aplicativo e seu cache).
-- Quando o checkout estiver desligado, mostra aviso neutro de indisponibilidade, sem linguagem de testes.
+- `/politica-de-entrega/`: frete fixo e condições de envio, com prazos editáveis no Admin.
+- `/trocas-e-devolucoes/`: direito de arrependimento e orientações legais gerais, com procedimentos adicionais editáveis.
+- `/politica-de-privacidade/`: dados utilizados pela loja e compra via InfinitePay, contato LGPD configurável.
+- `/atendimento/`: WhatsApp, e-mail, Instagram, horário e identificação comercial, exibidos somente quando cadastrados.
+- Rodapé organizado em **Explorar**, **Informações** e **Compra pela InfinitePay**.
+- Links de políticas junto à finalização do pedido.
+- Aparência e textos rosé/champagne preservados da v1.7.1.
 
-## O que ficou idêntico à v1.6.3
+## Como cadastrar os dados da loja (SEM atualizar GitHub novamente)
 
-- Produtos reais, várias fotografias por produto e estoque por variação.
-- Painel `/painel/` e Django Admin `/admin/`.
-- Limpeza de produtos fictícios e sincronização do contador do carrinho.
-- Frete fixo `ZAVIA_SHIPPING_FLAT`.
-- InfinitePay: funções API, geração de links, webhook, verificação, controle de reserva.
-- Variáveis do Render, migrações e PostgreSQL existentes.
-- Logo oficial, favicon, cores champagne/nude/rosé.
+Entre em `/admin/` com o administrador da ZÁVIA:
 
-**Esta versão não muda automaticamente** `ZAVIA_CHECKOUT_ENABLED`. Caso esteja `1`, clientes conseguem iniciar cobranças reais. Caso esteja `0`, verá mensagem temporária de indisponibilidade. Nunca compartilhe chaves API.
+1. Selecione **Informações comerciais e atendimento** > **Adicionar** (aparece só na primeira vez).
+2. Cadastre **razão social e CNPJ (quando aplicável), endereço comercial, e-mail, WhatsApp, horário e Instagram**.
+3. Preencha **origem do envio, preparação, previsão/condições de entrega e procedimento de trocas**.
+4. Salve. A alteração aparece nas páginas públicas automaticamente, sem novo deploy.
+5. Para editar posteriormente, acesse o mesmo item do Admin; apenas uma configuração pode ser criada no painel.
 
-## Instalar mantendo os dados
+**Formato de WhatsApp:** `5511999999999` (55 + DDD + número; exemplo ilustrativo, NÃO é contato da ZÁVIA). Nunca cadastre credenciais InfinitePay nesta tela. Os tokens permanecem apenas no Render Environment.
 
-1. Salve o commit de retorno da v1.6.3. Se existem pagamentos ou clientes, obtenha um backup restaurável do banco antes da mudança.
-2. Extraia **o conteúdo** do ZIP e envie para a raiz do repositório GitHub conectado ao serviço `zavia-loja`. Nunca envie segredos de `.env` ao GitHub.
-3. Confira `GitHub → Actions → ZAVIA - testes Django`: o job executa `manage.py check` e `manage.py test store`.
-4. Com o CI aprovado, Render → `zavia-loja` → Manual Deploy → Deploy latest commit.
-5. Confira páginas `/`, `/como-comprar/`, `/carrinho/`, `/finalizar/`, `/admin/` e `/painel/`.
-6. Confirme o valor dos produtos e do frete, o redirecionamento InfinitePay e os registros de pedidos.
+## O que foi preservado
 
-**Nenhuma migração nova:** o banco e os produtos já cadastrados não devem ser apagados por esta atualização (supondo que as migrações antigas já foram executadas).
+- Cadastro, contas, imagens reais e galeria, catálogo, tamanhos/cores e SKU.
+- Carrinho sincronizado, frete fixo, pedidos e estoque.
+- Pagamento via InfinitePay, webhook, confirmação, controle de reserva.
+- Painel `/painel/`, Django Admin, favicon, logo oficial e paleta premium.
+- Mesmo banco `zavia-db` e as mesmas variáveis de ambiente. **Não altera nenhum dado de produtos ou de pedidos.**
 
-## Validação e pendências
+## Banco de dados
 
-- Verificações locais: sintaxe Python e JavaScript, nomes de URLs, fechamento dos blocos de template, estrutura do ZIP e conferência por hash dos módulos de pagamento/estoque.
-- Sem teste Django completo local (instalação de dependências indisponível); executar o CI antes do deploy.
-- **Importante:** o redirecionamento InfinitePay ter funcionado **não comprova** que o pagamento, webhook, reembolso e reconciliação do estoque estão homologados. Acompanhe a primeira compra autorizada em ambos os painéis antes de declarar tudo pronto.
-- Antes de receber vendas de clientes de verdade: publicar os dados comerciais aplicáveis e canal de contato, política de entrega e trocas/devoluções, política de privacidade e confirmar backups/infra de banco persistentes. Não foram inventados dados legais ou canais de atendimento.
+Há **somente uma migração nova e não destrutiva**, `store/migrations/0006_store_information.py`: ela cria a tabela de informações comerciais. A migração de limpeza do catálogo `0005` já deve estar aplicada na sua versão atual e NÃO é reexecutada em atualizações normais.
 
-Leia também **`CHECKLIST_LANCAMENTO.md`** para a próxima fase.
+Se estiver atualizando a partir de uma versão mais antiga que ainda não executou a 0005, **NÃO faça deploy antes de revisar as migrações**: a 0005 apaga os produtos existentes. Evite confundir bancos ou branches diferentes.
+
+## Implantação no GitHub + Render
+
+1. Salve o commit funcional anterior e obtenha um **backup restaurável** do PostgreSQL (o Free do Render não fornece backup automático).
+2. Extraia este ZIP e atualize a raiz do mesmo repositório GitHub da ZÁVIA.
+3. Aguarde **GitHub > Actions**: `python manage.py check` e `python manage.py test store` devem passar.
+4. Em Render > zavia-loja > Manual Deploy, use **Deploy latest commit** (se autodeploy estiver desligado).
+5. Aguarde `Live`, confira `/admin/`, `/painel/`, catálogo, carrinho, checkout, imagens e as quatro páginas de informações.
+6. No Admin, **cadastre os dados comerciais verdadeiros antes de divulgar a loja**.
+
+O Render usa `build.sh`, que executa as migrações automaticamente. Não crie outra conta, outro projeto nem outro banco para aplicar esta versão.
+
+## Segurança, transparência e condições antes de receber clientes
+
+- **Não há mudança** em `ZAVIA_CHECKOUT_ENABLED`. Se estiver em `1`, a loja pode iniciar pagamentos reais. Ajuste essa variável conforme a etapa de homologação de cobranças.
+- O redirecionamento bem-sucedido para a InfinitePay NÃO comprova que webhook, pagamento concluído, estorno e liberação de estoque foram todos testados.
+- Sem razão social/identificação comercial, contato efetivo e informações verdadeiras sobre entrega, **a loja não deve ser divulgada ao público**.
+- As páginas legais são modelos de informações gerais e devem ser revisadas à luz da operação real e da legislação aplicável. Não foram inventados dados da empresa, telefone, promessas de entrega ou selos de segurança.
+
+## Validação incluída
+
+- Sintaxe Python e JavaScript.
+- Estrutura e nomes das quatro URLs.
+- Arquivos críticos de pagamento, carrinho, fotos e estoque preservados byte a byte em relação à v1.7.1.
+- Migração nova verificada para não conter exclusão de produtos.
+- Testes automatizados adicionais para páginas e campos comerciais.
+
+**Limite dos testes neste ambiente:** dependências Django indisponíveis localmente. O GitHub Actions deve aprovar os testes antes da implantação.

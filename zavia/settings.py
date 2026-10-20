@@ -38,6 +38,7 @@ TEMPLATES = [{
         'django.contrib.auth.context_processors.auth',
         'django.contrib.messages.context_processors.messages',
         'store.context_processors.cart_summary',
+        'store.context_processors.storefront_information',
     ]},
 }]
 WSGI_APPLICATION = 'zavia.wsgi.application'

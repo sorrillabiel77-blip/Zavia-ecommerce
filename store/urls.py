@@ -14,5 +14,9 @@ urlpatterns = [
     path('pagamento/webhook/',views.payment_webhook,name='payment_webhook'),
     path('painel/',views.dashboard,name='dashboard'),
     path('como-comprar/',views.como_comprar,name='como_comprar'),
+    path('politica-de-entrega/',views.politica_entrega,name='politica_entrega'),
+    path('trocas-e-devolucoes/',views.trocas_devolucoes,name='trocas_devolucoes'),
+    path('politica-de-privacidade/',views.politica_privacidade,name='politica_privacidade'),
+    path('atendimento/',views.atendimento,name='atendimento'),
     path('health/',views.health,name='health'),
 ]

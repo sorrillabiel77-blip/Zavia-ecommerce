@@ -4,7 +4,7 @@
   <div class="container">
     <div class="backoffice-top">
       <div><span class="backoffice-eyebrow">ZÁVIA · STUDIO OPERACIONAL</span><h1>Gestão da <em>loja.</em></h1><p>Seu centro de controle para produtos, estoque e acompanhamento dos pedidos.</p></div>
-      <div class="backoffice-actions"><a class="backoffice-btn solid" href="{% url 'admin:store_product_add' %}">＋ Cadastrar produto</a><a class="backoffice-btn" href="{% url 'admin:index' %}">Abrir administração ↗</a></div>
+      <div class="backoffice-actions"><a class="backoffice-btn solid" href="{% url 'admin:store_product_add' %}">＋ Cadastrar produto</a><a class="backoffice-btn" href="{% url 'admin:index' %}">Abrir administração ↗</a><a class="backoffice-btn" href="{% url 'admin:store_storeinformation_changelist' %}">Dados da loja ↗</a></div>
     </div>
 
     <div class="backoffice-metrics">
@@ -27,7 +27,7 @@
       </section>
       <section class="bo-panel demo-panel">
         <div class="bo-panel-title"><div><span class="backoffice-eyebrow">SEUS PRODUTOS REAIS</span><h2>Cadastre suas peças e fotos</h2></div><span class="bo-count">{{ products_count }} produto(s)</span></div>
-        <p>Seu catálogo começa vazio. Cadastre seus produtos com fotos reais enviadas do computador ou celular. Adicione várias imagens para cada peça e ajuste a ordem para escolher a capa.</p>
+        <p>Mantenha seu catálogo atualizado. Cadastre seus produtos com fotos reais enviadas do computador ou celular. Adicione várias imagens para cada peça e ajuste a ordem para escolher a capa.</p>
         <a class="backoffice-btn solid" href="{% url 'admin:store_product_add' %}">＋ Novo produto com fotos ↗</a>
         <div class="bo-mini-stats"><span><b>{{ products_count }}</b> produtos cadastrados</span><span><b>{{ variants_count }}</b> variações</span></div>
       </section>
@@ -46,6 +46,7 @@
         <div class="bo-stock-list">{% for v in low_stock %}<div><span><b>{{ v.product.name }}</b><small>{{ v.color }} · {{ v.size }} · {{ v.sku }}</small></span><span class="bo-stock-pill {% if v.stock == 0 %}zero{% endif %}">{{ v.stock }} un.</span></div>{% empty %}<p>Nenhum SKU real ativo com 3 ou menos unidades.</p>{% endfor %}</div>
       </section>
     </div>
+    <div class="bo-warning"><strong>Dados comerciais:</strong> {% if store_info and store_info.delivery_estimate and store_info.legal_name %}{% if store_info.contact_email or store_info.whatsapp_url %}Dados comerciais principais cadastrados. Confira se continuam corretos.{% else %}Cadastre um canal de atendimento em <a href="{% url 'admin:store_storeinformation_changelist' %}">Informações comerciais ↗</a>.{% endif %}{% else %}Preencha identificação empresarial e prazos de entrega em <a href="{% url 'admin:store_storeinformation_changelist' %}">Informações comerciais e atendimento ↗</a> antes de receber clientes.{% endif %}</div>
     <div class="bo-warning"><strong>Atenção antes de vender:</strong> habilite o checkout somente após conferir pagamento real na InfinitePay, validade das reservas, políticas comerciais, frete, armazenamento de fotos e backups do banco.</div>
   </div>
 </section>

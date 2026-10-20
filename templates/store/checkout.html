@@ -5,7 +5,7 @@
 {% if shipping_configured %}<p>Frete do pedido: <strong>{% if shipping == 0 %}Grátis{% else %}R$ {{ shipping|floatformat:2 }}{% endif %}</strong>. Total com frete: <strong>R$ {{ total_with_shipping|floatformat:2 }}</strong>.</p>{% endif %}</div>
 <a class="button button-dark" href="{% url 'cart' %}">VOLTAR AO CARRINHO ↗</a>
 {% else %}
-<div class="checkout-provider"><span class="provider-mark">✓</span><div><strong>Checkout seguro da InfinitePay</strong><p>Você informará seus dados de pagamento no ambiente da InfinitePay após confirmar o pedido na ZÁVIA.</p></div></div>
+<div class="checkout-provider"><span class="provider-mark">✓</span><div><strong>Pagamento seguro com InfinitePay</strong><p>Após confirmar o pedido na ZÁVIA, você conclui sua compra em ambiente protegido da InfinitePay, com praticidade e segurança.</p></div></div>
 <div class="information-box checkout-summary"><h3>Revise seu pedido</h3>
 {% for line in lines %}<div class="checkout-summary-row"><span>{{ line.quantity }} × {{ line.product.name }} · {{ line.variant.size }} / {{ line.variant.color }}</span><strong>R$ {{ line.subtotal|floatformat:2 }}</strong></div>{% endfor %}
 <div class="checkout-summary-row"><span>Produtos</span><strong>R$ {{ subtotal|floatformat:2 }}</strong></div>
@@ -16,5 +16,6 @@
 {% if form.non_field_errors %}<div class="error-text">{{ form.non_field_errors }}</div>{% endif %}
 {% for field in form %}<p><label for="{{ field.id_for_label }}">{{ field.label }}</label><br>{{ field }}{% if field.errors %}<small class="error-text">{{ field.errors }}</small>{% endif %}</p>{% endfor %}
 <button type="submit" class="button button-dark wide" id="startPaymentButton">CONTINUAR PARA INFINITEPAY ↗</button></form>
-<p class="muted small checkout-disclosure">Ao continuar, a ZÁVIA cria seu pedido e direciona você ao checkout da InfinitePay. A confirmação do pedido depende da confirmação do pagamento pela InfinitePay. Evite fechar a página durante o redirecionamento.</p>
+<p class="muted small checkout-disclosure">Confira nossas <a href="{% url 'politica_entrega' %}">informações de entrega</a>, <a href="{% url 'trocas_devolucoes' %}">trocas e devoluções</a> e <a href="{% url 'politica_privacidade' %}">política de privacidade</a> antes de finalizar.</p>
+<p class="muted small checkout-disclosure">Ao continuar, a ZÁVIA registra seu pedido e direciona você ao checkout seguro da InfinitePay. A confirmação da compra acontece após a confirmação do pagamento. Mantenha esta página aberta até o redirecionamento ser concluído.</p>
 {% endif %}</section>{% endblock %}

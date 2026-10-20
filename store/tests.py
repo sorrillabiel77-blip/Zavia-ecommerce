@@ -29,7 +29,7 @@ class StoreTests(TestCase):
 
     def test_out_of_stock_rejected(self):
         self.client.post(reverse('cart_add'),{'variant_id':self.variant.pk,'quantity':6})
-        self.assertContains(self.client.get(reverse('cart')),'esperando você')
+        self.assertContains(self.client.get(reverse('cart')),'pronto para receber sua próxima escolha.')
 
     def test_invalid_cart_quantity_rejected(self):
         result=self.client.post(reverse('cart_add'),{'variant_id':self.variant.pk,'quantity':0})
@@ -342,12 +342,12 @@ class CarrinhoSincronizadoTests(StoreTests):
         pagina = self.client.get(reverse('home'))
         self.assertContains(pagina, '<span class="badge-count">0</span>', html=True)
         self.assertEqual(self.client.session.get('zavia_cart_v1'), {})
-        self.assertContains(self.client.get(reverse('cart')), 'Seu carrinho está esperando você')
+        self.assertContains(self.client.get(reverse('cart')), 'Seu carrinho está pronto para receber sua próxima escolha.')
 
     def test_produto_desativado_sai_da_sessao(self):
         self.client.post(reverse('cart_add'), {'variant_id': self.variant.pk, 'quantity': 2})
         Product.objects.filter(pk=self.product.pk).update(active=False)
-        self.assertContains(self.client.get(reverse('cart')), 'Seu carrinho está esperando você')
+        self.assertContains(self.client.get(reverse('cart')), 'Seu carrinho está pronto para receber sua próxima escolha.')
         self.assertEqual(self.client.session.get('zavia_cart_v1'), {})
         self.assertContains(self.client.get(reverse('home')), '<span class="badge-count">0</span>', html=True)
 
@@ -395,7 +395,7 @@ class V17CommercialPresentationTests(StoreTests):
     def test_home_uses_customer_copy(self):
         response = self.client.get(reverse('home'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Pagamento pela InfinitePay')
+        self.assertContains(response, 'Compra pela InfinitePay')
         self.assertContains(response, 'Como comprar')
         self.assertNotContains(response, 'Checkout InfinitePay quando habilitado')
 
@@ -413,3 +413,45 @@ class V17CommercialPresentationTests(StoreTests):
         response=self.client.get(reverse('checkout'))
         self.assertContains(response, 'Pagamento temporariamente indisponível')
         self.assertNotContains(response, 'testes de segurança')
+
+
+class CommercialInformationTests(TestCase):
+    def test_commercial_pages_are_public(self):
+        from django.urls import reverse
+        for name in ('politica_entrega', 'trocas_devolucoes', 'politica_privacidade', 'atendimento'):
+            with self.subTest(route=name):
+                self.assertEqual(self.client.get(reverse(name)).status_code, 200)
+
+    def test_footer_links_to_actual_pages(self):
+        response = self.client.get(reverse('home'))
+        for name in ('politica_entrega', 'trocas_devolucoes', 'politica_privacidade', 'atendimento'):
+            self.assertContains(response, reverse(name))
+
+    def test_contact_info_can_be_set_via_database(self):
+        from .models import StoreInformation
+        data=StoreInformation.objects.create(
+            legal_name='Empresa Exemplo LTDA', contact_email='contato@example.org',
+            contact_phone='5511999999999', service_hours='Segunda a sexta',
+            delivery_estimate='Prazo informado antes do pagamento'
+        )
+        response=self.client.get(reverse('atendimento'))
+        self.assertContains(response, 'https://wa.me/5511999999999')
+        self.assertContains(response, 'contato@example.org')
+        self.assertContains(response, 'Empresa Exemplo LTDA')
+        self.assertContains(self.client.get(reverse('politica_entrega')), data.delivery_estimate)
+
+    def test_admin_store_info_is_singleton(self):
+        from .models import StoreInformation
+        from .admin import StoreInformationAdmin
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.auth.models import AnonymousUser
+        from django.test import RequestFactory
+        obj=StoreInformation.objects.create()
+        self.assertFalse(StoreInformationAdmin(StoreInformation, AdminSite()).has_delete_permission(RequestFactory().get('/admin/'), obj))
+        # Não adicionar uma segunda configuração comercial.
+        self.assertEqual(StoreInformation.objects.count(), 1)
+
+    def test_no_store_data_is_invented_by_default(self):
+        response=self.client.get(reverse('atendimento'))
+        self.assertContains(response, 'Os canais de contato ainda não foram publicados')
+        self.assertNotContains(response, 'contato@zavia.com')

@@ -301,3 +301,20 @@ def payment_webhook(request):
         return HttpResponse(status=503)
     # 200 para eventos que não representam aprovação; nada é marcado pago sem confirmação.
     return HttpResponse(status=200)
+
+
+@require_GET
+def politica_entrega(request):
+    return render(request, 'store/politica_entrega.html')
+
+@require_GET
+def trocas_devolucoes(request):
+    return render(request, 'store/trocas_devolucoes.html')
+
+@require_GET
+def politica_privacidade(request):
+    return render(request, 'store/politica_privacidade.html')
+
+@require_GET
+def atendimento(request):
+    return render(request, 'store/atendimento.html')
