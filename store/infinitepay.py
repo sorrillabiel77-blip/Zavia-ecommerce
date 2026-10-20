@@ -121,12 +121,18 @@ def verify_and_apply(order_id, transaction_nsu, slug):
                 return False
             if order.status in ('cancelled', 'refunded') or not order.stock_reserved:
                 return False
-            if order.status == 'pending_payment':
+            first_approval = order.status == 'pending_payment'
+            if first_approval:
                 order.status = 'paid'
                 order.paid_at = timezone.now()
                 order.payment_status = 'paid'
             order.gateway_payment_id = transaction_nsu
             order.save(update_fields=['status','paid_at','payment_status','gateway_payment_id'])
+            if first_approval:
+                from .models import OrderEvent
+                from .notifications import queue_order_email
+                OrderEvent.objects.create(order=order, event='order.paid', details='Confirmação autenticada payment_check InfinitePay')
+                queue_order_email(order, 'order.paid')
         return True
     except (ValueError, TypeError):
         return False
@@ -176,4 +182,9 @@ def release_abandoned_after_manual_confirmation(order_id, *, staff_user, provide
                        f'[{timezone.now().isoformat()}] Cancelamento manual após conferência '
                        f'InfinitePay; operador={staff_user.pk}').strip()
         order.save(update_fields=['stock_reserved','status','payment_status','notes'])
+        from .models import OrderEvent
+        from .notifications import queue_order_email
+        OrderEvent.objects.create(order=order,event='order.cancelled',actor=staff_user,
+                                  details='Cancelado após verificação manual de não pagamento no provedor')
+        queue_order_email(order,'order.cancelled')
         return True

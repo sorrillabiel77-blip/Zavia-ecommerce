@@ -3,7 +3,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.db.models import F, Sum, Count, Prefetch
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_GET
 from django.utils import timezone
 from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
@@ -87,6 +87,28 @@ def register(request):
 def profile(request):
     orders=Order.objects.filter(user=request.user)[:30]
     return render(request,'store/profile.html',{'orders':orders})
+
+
+@login_required
+@require_GET
+def order_detail(request, order_id):
+    order = get_object_or_404(Order.objects.prefetch_related('items', 'history'), pk=order_id, user=request.user)
+    return render(request, 'store/order_detail.html', {'order':order})
+
+
+@login_required
+@require_POST
+def order_cancellation_request(request, order_id):
+    from .order_workflow import request_cancellation
+    order = get_object_or_404(Order, pk=order_id, user=request.user)
+    try:
+        if request_cancellation(order, request.user, request.POST.get('reason','')):
+            messages.success(request, 'Solicitação registrada. A equipe ZÁVIA vai conferir o pagamento e a situação do envio.')
+        else:
+            messages.info(request, 'Sua solicitação já havia sido recebida.')
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    return redirect('order_detail', order_id=order_id)
 
 
 def checkout(request):
@@ -247,6 +269,10 @@ def payment_checkout(request):
         order.gateway_preference_id = pref_id
         order.gateway_checkout_url = redirect_url
         order.save(update_fields=['gateway_preference_id', 'gateway_checkout_url'])
+        from .models import OrderEvent
+        from .notifications import queue_order_email
+        OrderEvent.objects.create(order=order, event='order.created', details='Link InfinitePay criado')
+        queue_order_email(order,'order.created')
         request.session.pop(CART_KEY, None)
         return redirect(redirect_url)
     return render(request, 'store/checkout.html',

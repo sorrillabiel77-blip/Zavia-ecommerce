@@ -455,3 +455,92 @@ class CommercialInformationTests(TestCase):
         response=self.client.get(reverse('atendimento'))
         self.assertContains(response, 'Os canais de contato ainda não foram publicados')
         self.assertNotContains(response, 'contato@zavia.com')
+
+# Regressão v1.9: conta, solicitações, atualização financeira e e-mails.
+from .models import OrderEvent, EmailNotification
+from .order_workflow import request_cancellation, transition_order
+
+class WorkflowV19Tests(CheckoutInfinitePayTests):
+    @override_settings(ZAVIA_EMAIL_ENABLED=False,ZAVIA_CHECKOUT_ENABLED=True,
+                       INFINITEPAY_API_KEY='inchk_fake',INFINITEPAY_TAG='minha-loja',ZAVIA_SHIPPING_FLAT='12.00')
+    def test_cliente_consegue_sair_com_post_csrf(self):
+        self.client.force_login(self.buyer)
+        page = self.client.get(reverse('profile'))
+        self.assertContains(page, 'Sair da minha conta')
+        self.assertContains(page, 'action="' + reverse('logout') + '"')
+        self.assertEqual(self.client.get(reverse('logout')).status_code,405)
+        self.assertEqual(self.client.post(reverse('logout')).status_code,302)
+        self.assertEqual(self.client.get(reverse('profile')).status_code,302)
+
+    @override_settings(ZAVIA_EMAIL_ENABLED=False,ZAVIA_CHECKOUT_ENABLED=True,
+                       INFINITEPAY_API_KEY='inchk_fake',INFINITEPAY_TAG='minha-loja',ZAVIA_SHIPPING_FLAT='12.00')
+    def test_cliente_pode_solicitar_cancelamento_sem_fingir_estorno(self):
+        order=self.create_order()
+        self.assertContains(self.client.get(reverse('order_detail',args=[order.pk])), 'SOLICITAR CANCELAMENTO')
+        response=self.client.post(reverse('order_cancellation_request',args=[order.pk]),{'reason':'Compra de teste'})
+        self.assertEqual(response.status_code,302)
+        order.refresh_from_db()
+        self.assertEqual(order.status,'pending_payment')
+        self.assertIsNotNone(order.cancellation_requested_at)
+        self.assertEqual(order.payment_status,'awaiting_payment')
+        self.assertEqual(OrderEvent.objects.filter(order=order,event='order.cancellation_requested').count(),1)
+        self.client.post(reverse('order_cancellation_request',args=[order.pk]),{})
+        self.assertEqual(OrderEvent.objects.filter(order=order,event='order.cancellation_requested').count(),1)
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.stock,4)  # Reserva mantida até confirmação externa.
+
+    @override_settings(ZAVIA_EMAIL_ENABLED=False,ZAVIA_CHECKOUT_ENABLED=True,
+                       INFINITEPAY_API_KEY='inchk_fake',INFINITEPAY_TAG='minha-loja',ZAVIA_SHIPPING_FLAT='12.00')
+    def test_cliente_nao_vê_pedido_alheio_nem_solicita_cancelamento(self):
+        order=self.create_order()
+        outra=User.objects.create_user(username='outro123',password='SenhaMuitoBoa123!')
+        self.client.force_login(outra)
+        self.assertEqual(self.client.get(reverse('order_detail',args=[order.pk])).status_code,404)
+        self.assertEqual(self.client.post(reverse('order_cancellation_request',args=[order.pk])).status_code,404)
+        order.refresh_from_db()
+        self.assertIsNone(order.cancellation_requested_at)
+
+    @override_settings(ZAVIA_EMAIL_ENABLED=False,ZAVIA_CHECKOUT_ENABLED=True,
+                       INFINITEPAY_API_KEY='inchk_fake',INFINITEPAY_TAG='minha-loja',ZAVIA_SHIPPING_FLAT='12.00')
+    def test_confirmacao_do_pagamento_e_idempotente_gera_um_email_pendente(self):
+        order=self.create_order()
+        payload={'success':True,'paid':True,'amount':16190}
+        from .infinitepay import verify_and_apply
+        with patch('store.infinitepay.payment_check',return_value=payload):
+            self.assertTrue(verify_and_apply(order.pk,'tx123','slug123'))
+            self.assertTrue(verify_and_apply(order.pk,'tx123','slug123'))
+        order.refresh_from_db()
+        self.assertEqual(order.status,'paid')
+        self.assertEqual(OrderEvent.objects.filter(order=order,event='order.paid').count(),1)
+        self.assertEqual(EmailNotification.objects.filter(order=order,event='order.paid').count(),1)
+        self.assertEqual(EmailNotification.objects.get(order=order,event='order.paid').status,'pending')
+
+    @override_settings(ZAVIA_EMAIL_ENABLED=False,ZAVIA_CHECKOUT_ENABLED=True,
+                       INFINITEPAY_API_KEY='inchk_fake',INFINITEPAY_TAG='minha-loja',ZAVIA_SHIPPING_FLAT='12.00')
+    def test_admin_transicoes_validas_e_estorno_dependem_de_provedor(self):
+        order=self.create_order()
+        admin=User.objects.create_superuser(username='admteste',email='admteste@example.com',password='SenhaGrande!234')
+        Order.objects.filter(pk=order.pk).update(status='paid',gateway_payment_id='tx123',payment_status='paid')
+        self.assertTrue(transition_order(order.pk,'preparing',actor=admin))
+        with self.assertRaises(ValueError):
+            transition_order(order.pk,'shipped',actor=admin)
+        Order.objects.filter(pk=order.pk).update(tracking_carrier='Transportadora de teste',tracking_code='COD123')
+        self.assertTrue(transition_order(order.pk,'shipped',actor=admin))
+        self.assertTrue(transition_order(order.pk,'delivered',actor=admin))
+        with self.assertRaises(ValueError):
+            transition_order(order.pk,'refunded',actor=admin,provider_verified=False)
+        self.assertTrue(transition_order(order.pk,'refunded',actor=admin,provider_verified=True))
+        order.refresh_from_db()
+        self.assertEqual(order.status,'refunded')
+        self.assertEqual(order.payment_status,'refunded')
+        self.assertIsNotNone(order.refund_confirmed_at)
+        self.assertEqual(EmailNotification.objects.filter(order=order,event='order.refunded').count(),1)
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.stock,4)  # Não repõe mercadoria automaticamente após estorno.
+
+    @override_settings(ZAVIA_EMAIL_ENABLED=False,ZAVIA_CHECKOUT_ENABLED=True,
+                       INFINITEPAY_API_KEY='inchk_fake',INFINITEPAY_TAG='minha-loja',ZAVIA_SHIPPING_FLAT='12.00')
+    def test_contas_pendentes_que_solicitam_cancelamento_nao_recebem_email_falso(self):
+        order=self.create_order()
+        request_cancellation(order,self.buyer)
+        self.assertFalse(EmailNotification.objects.filter(order=order,event='order.cancelled').exists())

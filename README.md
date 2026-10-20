@@ -65,3 +65,13 @@ O Render usa `build.sh`, que executa as migrações automaticamente. Não crie o
 - Testes automatizados adicionais para páginas e campos comerciais.
 
 **Limite dos testes neste ambiente:** dependências Django indisponíveis localmente. O GitHub Actions deve aprovar os testes antes da implantação.
+
+## Atualização v1.9 — pré-vendas
+
+- Link **Sair** em todas as páginas quando a cliente está logada; formulário POST/CSRF.
+- Minha conta > detalhes de pedido, histórico e solicitação de cancelamento pelo cliente.
+- Admin > Pedidos: ações **Marcar preparação**, **Marcar enviado**, **Marcar entregue** e **Registrar reembolso** (este último somente após conferência manual na InfinitePay).
+- Pedidos **não pagos**: continue usando a ação de cancelamento/verificação da InfinitePay após expiração + carência de 24h. A solicitação do cliente NÃO altera cobrança e NÃO repõe estoque antes dessa conferência.
+- E-mails transacionais: fila no PostgreSQL e opção de envio via Gmail Apps Script desligada por padrão. Configuração em `integrations/EMAIL_SETUP.md`. Não precisa configurar Gmail para usar pedido/cancelamento no painel.
+- Nova migração `store/migrations/0007_order_workflow_notifications.py` aditiva; preserva produtos, fotos, pedidos, banco e administrador existentes.
+- **Antes de ativar vendas reais:** seguir `CHECKLIST_PRE_LANCAMENTO_v1_9.md` e testar pagamento aprovado, envio, cancelamento, estornos e recuperação de estoque. Uma atualização de código não comprova homologação real.

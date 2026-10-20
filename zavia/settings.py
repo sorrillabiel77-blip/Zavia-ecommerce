@@ -91,3 +91,8 @@ INFINITEPAY_TAG = os.environ.get('INFINITEPAY_TAG', '').strip().lstrip('$')
 ZAVIA_CHECKOUT_ENABLED = os.environ.get('ZAVIA_CHECKOUT_ENABLED', '0') == '1'
 # Frete FIXO provisório, definido pela loja (não é uma cotação de transportadora).
 ZAVIA_SHIPPING_FLAT = os.environ.get('ZAVIA_SHIPPING_FLAT', '').strip()
+
+# Notificações por Gmail Apps Script: opção gratuita, desligada até validar remetente.
+ZAVIA_EMAIL_ENABLED = os.environ.get('ZAVIA_EMAIL_ENABLED', '0') == '1'
+ZAVIA_MAIL_SCRIPT_URL = os.environ.get('ZAVIA_MAIL_SCRIPT_URL','').strip()
+ZAVIA_MAIL_SCRIPT_SECRET = os.environ.get('ZAVIA_MAIL_SCRIPT_SECRET','').strip()

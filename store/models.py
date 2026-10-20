@@ -98,6 +98,11 @@ class Order(models.Model):
     stock_reserved = models.BooleanField(default=False)
     paid_at = models.DateTimeField(null=True, blank=True)
     payment_expires_at = models.DateTimeField('Validade do link InfinitePay', null=True, blank=True)
+    cancellation_requested_at = models.DateTimeField('Solicitação de cancelamento', blank=True, null=True)
+    cancellation_reason = models.TextField('Motivo informado pela cliente', blank=True)
+    tracking_carrier = models.CharField('Transportadora / forma de entrega', max_length=120, blank=True)
+    tracking_code = models.CharField('Código de rastreio / referência de entrega', max_length=150, blank=True)
+    refund_confirmed_at = models.DateTimeField('Reembolso confirmado no provedor', null=True, blank=True)
     class Meta:
         verbose_name = 'Pedido'
         verbose_name_plural = 'Pedidos'
@@ -151,3 +156,34 @@ class StoreInformation(models.Model):
     @property
     def privacy_contact(self):
         return self.privacy_email or self.contact_email
+
+
+class OrderEvent(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='history')
+    event = models.CharField(max_length=48)
+    details = models.TextField(blank=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Histórico do pedido'
+        verbose_name_plural = 'Histórico dos pedidos'
+
+
+class EmailNotification(models.Model):
+    STATES = [('pending','Pendente'),('sending','Enviando'),('sent','Enviado'),('error','Falha')]
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='notifications')
+    event = models.CharField(max_length=48)
+    recipient = models.EmailField()
+    status = models.CharField(max_length=12, choices=STATES, default='pending')
+    attempts = models.PositiveSmallIntegerField(default=0)
+    last_error = models.CharField(max_length=240, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['order','event'], name='zavia_unique_order_notice')]
+        ordering = ['-created_at']
+        verbose_name = 'Notificação de e-mail'
+        verbose_name_plural = 'Notificações de e-mail'

@@ -7,7 +7,9 @@ from django.utils.html import format_html
 from .photo_forms import ProductPhotoForm
 
 from .infinitepay import release_abandoned_after_manual_confirmation
-from .models import Category, Product, ProductVariant, ProductImage, Order, OrderItem, StoreInformation
+from .models import Category, Product, ProductVariant, ProductImage, Order, OrderItem, StoreInformation, OrderEvent, EmailNotification
+from .order_workflow import transition_order
+from .notifications import send_notice
 
 
 @admin.register(Category)
@@ -111,10 +113,57 @@ class OrderItemInline(admin.TabularInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'status', 'payment_status', 'total', 'stock_reserved', 'expired_reservation', 'created_at')
+    list_display = ('id', 'user', 'status', 'payment_status', 'cancel_requested', 'tracking_code', 'total', 'stock_reserved', 'expired_reservation', 'created_at')
     list_filter = ('status', 'stock_reserved', 'created_at')
-    actions = ['release_after_verified_unpaid']
+    actions = ['release_after_verified_unpaid', 'mark_preparing', 'mark_shipped', 'mark_delivered', 'mark_refunded_after_verification']
     list_per_page = 30
+
+    @admin.display(boolean=True, description='Cancelamento solicitado')
+    def cancel_requested(self,obj):
+        return bool(obj.cancellation_requested_at)
+
+    @admin.action(description='Marcar como EM PREPARAÇÃO (somente pedidos pagos)')
+    def mark_preparing(self, request, queryset):
+        self._do_transition(request, queryset, 'preparing')
+
+    @admin.action(description='Marcar como ENVIADO (preencher rastreio antes)')
+    def mark_shipped(self, request, queryset):
+        self._do_transition(request, queryset, 'shipped')
+
+    @admin.action(description='Marcar como ENTREGUE (somente enviados)')
+    def mark_delivered(self, request, queryset):
+        self._do_transition(request, queryset, 'delivered')
+
+    def _do_transition(self, request, queryset, state):
+        if not self.has_change_permission(request):
+            self.message_user(request, 'Você não possui permissão.', level=messages.ERROR)
+            return
+        count=0
+        for order_id in queryset.values_list('pk', flat=True)[:50]:
+            try:
+                if transition_order(order_id,state,actor=request.user):count+=1
+            except ValueError as exc:
+                self.message_user(request, str(exc), level=messages.WARNING)
+        self.message_user(request, f'{count} pedido(s) atualizado(s).', level=messages.SUCCESS if count else messages.INFO)
+
+    @admin.action(description='REGISTRAR ESTORNO INTEGRAL já confirmado na InfinitePay')
+    def mark_refunded_after_verification(self, request, queryset):
+        if not self.has_change_permission(request):
+            self.message_user(request, 'Você não possui permissão.', level=messages.ERROR)
+            return
+        ids=list(queryset.values_list('pk',flat=True)[:10])
+        if request.POST.get('confirmed_refund') != 'ESTORNO CONFIRMADO NA INFINITEPAY':
+            return TemplateResponse(request, 'admin/store/order/confirm_refund.html', {
+                **self.admin_site.each_context(request), 'title':'Confirmar estorno já realizado na InfinitePay',
+                'orders':queryset[:10], 'action_checkbox_name':helpers.ACTION_CHECKBOX_NAME,
+                'action_name':'mark_refunded_after_verification', 'opts':self.model._meta,
+            })
+        count=0
+        for order_id in ids:
+            try:
+                if transition_order(order_id,'refunded',actor=request.user,provider_verified=True):count+=1
+            except ValueError as exc:self.message_user(request,str(exc),level=messages.WARNING)
+        self.message_user(request, f'{count} reembolso(s) registrado(s), após conferência externa.', level=messages.INFO)
 
     @admin.display(boolean=True, description='Reserva expirada')
     def expired_reservation(self, obj):
@@ -149,8 +198,13 @@ class OrderAdmin(admin.ModelAdmin):
         self.message_user(request, f'{count} reserva(s) devolvida(s) após conferência manual.', level=messages.INFO)
 
     search_fields = ('user__email', 'contact_email', 'gateway_payment_id')
-    readonly_fields = ('user', 'created_at', 'total', 'shipping_amount', 'customer_name', 'contact_email', 'address', 'gateway_payment_id', 'gateway_preference_id', 'gateway_checkout_url', 'checkout_nonce', 'payment_status', 'stock_reserved', 'paid_at', 'payment_expires_at', 'status')
+    readonly_fields = ('user', 'created_at', 'total', 'shipping_amount', 'customer_name', 'contact_email', 'address', 'gateway_payment_id', 'gateway_preference_id', 'gateway_checkout_url', 'checkout_nonce', 'payment_status', 'stock_reserved', 'paid_at', 'payment_expires_at', 'status', 'cancellation_requested_at', 'refund_confirmed_at')
     inlines = [OrderItemInline]
+    fieldsets = (
+        ('Pedido e cliente',{'fields':('user','created_at','status','payment_status','total','shipping_amount','customer_name','contact_email','address')}),
+        ('Acompanhamento e envio',{'fields':('tracking_carrier','tracking_code','cancellation_requested_at','cancellation_reason','notes')}),
+        ('Pagamento InfinitePay — somente leitura',{'fields':('gateway_payment_id','gateway_preference_id','gateway_checkout_url','checkout_nonce','stock_reserved','paid_at','payment_expires_at','refund_confirmed_at')}),
+    )
 
     def has_add_permission(self, request): return False
     def has_delete_permission(self, request, obj=None): return False
@@ -185,3 +239,30 @@ class StoreInformationAdmin(admin.ModelAdmin):
             from django.shortcuts import redirect
             return redirect('admin:store_storeinformation_change', existing.pk)
         return super().changelist_view(request, extra_context)
+
+
+@admin.register(OrderEvent)
+class OrderEventAdmin(admin.ModelAdmin):
+    list_display=('order','event','actor','created_at')
+    list_filter=('event','created_at')
+    search_fields=('order__id',)
+    readonly_fields=('order','event','details','actor','created_at')
+    def has_add_permission(self,request):return False
+    def has_delete_permission(self,request,obj=None):return False
+
+
+@admin.register(EmailNotification)
+class EmailNotificationAdmin(admin.ModelAdmin):
+    list_display=('order','event','recipient','status','attempts','created_at','sent_at')
+    list_filter=('status','event')
+    actions=['retry_delivery']
+    readonly_fields=('order','event','recipient','status','attempts','last_error','sent_at','created_at')
+    def has_add_permission(self,request):return False
+    def has_delete_permission(self,request,obj=None):return False
+    @admin.action(description='Tentar enviar e-mails pendentes (requer integração habilitada)')
+    def retry_delivery(self,request,queryset):
+        if not self.has_change_permission(request):
+            self.message_user(request,'Sem permissão',level=messages.ERROR)
+            return
+        n=sum(bool(send_notice(pk)) for pk in queryset.exclude(status='sent').values_list('pk',flat=True)[:20])
+        self.message_user(request,f'{n} e-mail(s) enviados. Outros permanecem na fila para revisão.',level=messages.INFO)
